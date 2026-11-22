@@ -1,0 +1,284 @@
+<title>Section-Lazy Worldgen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column, diagrams on a pale "blueprint" panel that stays light in both themes, component cards in a 2-up grid */
+:root {
+  --bg: #f3f5f6; --surface: #ffffff; --fg: #1b2328; --muted: #57656e; --line: #d5dde2;
+  --accent: #127a72; --accent-soft: #dcefec; --warn: #a2541a; --warn-soft: #f6e6d8;
+  --diagram: #fbfcfc;
+  --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12181b; --surface: #1a2226; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2c383e;
+  --accent: #4cc2b6; --accent-soft: #163633; --warn: #e49a5f; --warn-soft: #3a2616;
+  --diagram: #eef2f3; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12181b; --surface: #1a2226; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2c383e;
+  --accent: #4cc2b6; --accent-soft: #163633; --warn: #e49a5f; --warn-soft: #3a2616;
+  --diagram: #eef2f3; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--f-body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.2; }
+h1 { font-size: 2.3rem; margin: 0 0 8px; }
+h2 { font-size: 1.5rem; margin: 56px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+h3 { font-size: 1.1rem; margin: 0 0 6px; }
+p, li { max-width: 68ch; }
+.lede { color: var(--muted); font-size: 1.08rem; }
+.eyebrow { font: 600 .75rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+code, pre { font-family: var(--f-mono); font-size: .86rem; }
+:not(pre) > code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+pre.code { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+.diagram { background: var(--diagram); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; margin: 16px 0; }
+.diagram pre.mermaid { margin: 0; background: transparent; color: #1b2328; }
+.cap { font-size: .85rem; color: var(--muted); margin-top: -6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; margin-top: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.card dl { margin: 8px 0 0; display: grid; grid-template-columns: 64px 1fr; gap: 6px 10px; }
+.card dt { font: 600 .72rem var(--f-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-top: 3px; }
+.card dd { margin: 0; font-size: .94rem; min-width: 0; }
+.card dd.no { color: var(--warn); }
+.verdict { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+.risk { background: var(--warn-soft); border-left: 3px solid var(--warn); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+.tbl { overflow-x: auto; margin: 16px 0; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 .75rem var(--f-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.phase { display: grid; grid-template-columns: 56px 1fr; gap: 4px 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.phase b { font: 700 1.05rem var(--f-display); color: var(--accent); }
+.phase p { margin: 0; }
+.tag { font: 600 .72rem var(--f-mono); color: var(--muted); }
+</style>
+
+<div class="wrap">
+<p class="eyebrow">Swift-ality/Paper · design draft · 2026-11-22</p>
+<h1>Section-Lazy Worldgen</h1>
+<p class="lede">Generate the overworld one 16×16×16 section at a time, only when something needs it. Send caves, bases and entities to a player only when that player could see them. One visibility service decides both.</p>
+
+<div class="verdict"><strong>The design in one paragraph.</strong> Keep Moonrise's column pipeline for the cheap, horizontal work (structures, biomes, surface estimate). Turn every section below the surface into a <em>proxy</em>: a single-value stone or deepslate section that costs a few bytes. A per-player <em>visibility service</em> walks the section graph from the player's eye and produces a potentially-visible set (PVS). Three consumers read that set: the section generator (make proxies real), the chunk sender (send hidden sections as filler), and the entity tracker (hide entities that fail a line-of-sight check). Simulation is untouched. Hidden caves still tick, farms still run.</div>
+
+<h2>Two questions, kept apart</h2>
+<p>Your follow-up turned one problem into two, and they need separate state.</p>
+<div class="tbl"><table>
+<tr><th>Question</th><th>Scope</th><th>State</th><th>Changes when</th></tr>
+<tr><td>Does this section's real content exist yet?</td><td>Server-wide, one per section</td><td><code>PROXY → GENERATING → LIVE</code></td><td>Once. A section never goes back to proxy.</td></tr>
+<tr><td>Has this player been sent the real content?</td><td>Per player, per section</td><td><code>HIDDEN ↔ REVEALED</code></td><td>Every time the player's PVS moves.</td></tr>
+</table></div>
+<p>A LIVE section can still be HIDDEN for a player. That is the case for a cave someone else already explored, or a base behind 30 blocks of stone. A PROXY section is always HIDDEN, because there is nothing real to send.</p>
+
+<h2>Main flow</h2>
+<div class="diagram"><pre class="mermaid">
+%%{init: {"theme":"neutral","flowchart":{"curve":"basis"}}}%%
+flowchart TD
+  T["Chunk ticket (view distance)"] --> CP["Column pipeline (Moonrise)<br/>structure starts + refs, 3D biomes,<br/>preliminary surface"]
+  CP --> PLAN["ColumnPlan (immutable)<br/>surface band, feature index,<br/>carver starts, proxy palette"]
+  PLAN --> BAND{"Section inside<br/>surface band?"}
+  BAND -- yes --> GEN
+  BAND -- no --> PX["PROXY<br/>single-value stone / deepslate"]
+  PX --> FULL["Column FULL<br/>tickable, saveable"]
+  GEN --> FULL
+
+  subgraph VIS["Per-player visibility service (async)"]
+    EYE["Eye position + velocity"] --> BFS["Directional BFS over<br/>section connectivity graph"]
+    BFS --> PVS["PVS = visible sections<br/>+ one-hop prefetch ring"]
+  end
+
+  PVS -- "PVS hits a PROXY" --> Q
+  BUB["Player bubble 3×3×3"] --> Q
+  WB["Write barrier<br/>(setBlock on PROXY)"] -- blocking --> Q
+  SP["Spawn probe / plugin API"] --> Q
+  Q["Section demand queue<br/>(priority by cause + distance)"] --> GEN
+
+  subgraph GEN["Section generator (Moonrise workers)"]
+    N["Noise 16³ + aquifer + surface rules<br/>+ carvers clipped to section"] --> D["Decorate: replay features and<br/>structure pieces whose box<br/>touches this section, clip writes"]
+    D --> L["Starlight relight"] --> C["Compute 6-face connectivity"]
+  end
+  C --> LIVE["LIVE"]
+  LIVE -- "new open faces" --> BFS
+
+  PVS --> SEND["Chunk sender<br/>hidden → filler, revealed → real"]
+  PVS --> ENT["Entity tracker<br/>coarse PVS, then raycast"]
+  LIVE --> SEND
+</pre></div>
+<p class="cap">Arrows into the demand queue are the only way a proxy becomes real. The PVS is the only input to what a player receives.</p>
+
+<h2>Core data shapes</h2>
+<p>Everything else follows from these. Note what is missing. There is no NOISE state. Noise for a section is a pure function of seed, column plan and position, so the decorator recomputes or caches it instead of storing it.</p>
+<pre class="code">// server-wide, lives on LevelChunk / NewChunkHolder
+enum SectionGen : byte { PROXY, GENERATING, LIVE }
+final class ColumnSections {
+  byte[]  gen;          // one SectionGen per section (24 in the overworld)
+  short[] connectivity; // 15 face-pair bits per LIVE section, like the client's VisibilitySet
+}
+
+record ColumnPlan(                      // built once in the column pipeline, never mutated
+  ChunkPos pos,
+  short[] preliminarySurface,           // 16×16
+  int bandMinSection, int bandMaxSection,
+  FeatureIndex features,                // per section Y: instances whose box touches it
+  List&lt;CarverStart&gt; carvers,            // starts from the 17×17 chunk neighbourhood
+  BlockState[] proxyFill)               // per section: stone, deepslate, or water below ocean floor
+
+record FeatureInstance(int step, int index, ChunkPos origin, BoundingBox writeBox, BoundingBox readBox)
+record SectionDemand(long sectionKey, Cause cause, int distance)
+enum Cause { WRITE_BARRIER, BUBBLE, VISIBLE, PREFETCH, SPAWN_PROBE, API }   // priority order
+
+// per player, owned by the visibility service thread
+final class PlayerView {
+  Long2IntOpenHashMap revealed;   // column key -> 24-bit mask of sections sent with real content
+  LongOpenHashSet     pvs;        // current potentially-visible section keys
+  IntOpenHashSet      shownEntities;
+}</pre>
+
+<h2>Why each part works the way it does</h2>
+<div class="grid">
+
+<div class="card"><h3>ColumnPlan</h3>
+<dl><dt>What</dt><dd>The column stages vanilla already runs before <code>TERRAIN</code>: structure starts, references, biomes. Add the preliminary surface and a feature index.</dd>
+<dt>How</dt><dd>Run <code>EMPTY</code> to <code>BIOMES</code> unchanged. Sample preliminary surface from the noise router. Run feature <em>placement</em> (positions only) for features whose placement is pure, and bucket each instance by the sections its box touches.</dd>
+<dt>Why</dt><dd>Structures and biomes reach across many chunks and are cheap. Splitting them per section would add cross-section waits for no saving.</dd>
+<dt>Not</dt><dd class="no">Adding skip flags to <code>ChunkStatus</code>. A column-wide status cannot say "half of me is real".</dd></dl></div>
+
+<div class="card"><h3>Surface band</h3>
+<dl><dt>What</dt><dd>Sections from one below the lowest surface point up to the build limit. Always generated with the column.</dd>
+<dt>How</dt><dd>From <code>preliminarySurface</code> min/max, widened by the tallest feature reach in the biome set.</dd>
+<dt>Why</dt><dd>Every player sees the surface, trees and sky. Making them lazy only adds latency. Heightmaps come from the band, so a proxy never affects them.</dd>
+<dt>Not</dt><dd class="no">Lazy surface. It would pop in at the horizon.</dd></dl></div>
+
+<div class="card"><h3>Proxy section</h3>
+<dl><dt>What</dt><dd>A <code>LevelChunkSection</code> with a single-value palette, plus real biomes from the plan.</dd>
+<dt>How</dt><dd>Fill block from <code>proxyFill</code>. Light treats it as fully opaque. It has no block entities, no ticks, no entities.</dd>
+<dt>Why</dt><dd>Gameplay code needs no special case to read it. Mobs path around it like stone, and fluids treat it as a wall. It encodes on the wire in a few bytes.</dd>
+<dt>Not</dt><dd class="no">Air proxies. The client would render holes into the void.</dd></dl></div>
+
+<div class="card"><h3>Section noise</h3>
+<dl><dt>What</dt><dd>Terrain for exactly one section, or any sub-box of one.</dd>
+<dt>How</dt><dd>Your fork's <code>NoiseBasedChunkGenerator.doFill</code> already samples a <code>DensityVolume(16, height, 16)</code>. Build the volume over the section's Y range instead. Aquifers and surface rules are positional functions, so they run on the same range. Carvers run with the section as the clip box, the same way vanilla clips them to a chunk.</dd>
+<dt>Why</dt><dd>It is a pure function. That makes it cacheable, parallel, and safe to recompute after a crash.</dd>
+<dt>Check</dt><dd>Generating 24 sections one by one must give the same blocks as one full-column fill, bit for bit.</dd></dl></div>
+
+<div class="card"><h3>Clipped feature replay</h3>
+<dl><dt>What</dt><dd>Decorate one section without decorating its neighbours.</dd>
+<dt>How</dt><dd>Take every instance from the 3×3 columns' indexes whose <code>writeBox</code> touches S, in vanilla order (step, index, origin). Reseed with <code>setFeatureSeed</code> as vanilla does. Run it against a view where reads of S see S's in-progress state and reads elsewhere see neighbour noise. Commit writes inside S and drop the rest. Structure pieces already take a clip box in <code>postProcess(…, BoundingBox chunkBB, …)</code>. Pass the section box.</dd>
+<dt>Why</dt><dd>The only shared write target is S itself, so no locks are needed. The result depends on the seed, not on which section generated first.</dd>
+<dt>Cost</dt><dd>A tree that spans two sections runs twice, and an ore blob runs up to eight times. Placement is cheap next to noise. Measure it.</dd></dl></div>
+
+<div class="card"><h3>Feature footprint registry</h3>
+<dl><dt>What</dt><dd>A table from feature type to a conservative write and read reach.</dd>
+<dt>How</dt><dd>Ores take their size, geodes their radius, and <code>EnvironmentScanPlacement</code> its maximum scan steps. A datapack feature with no entry gets a column-wide reach.</dd>
+<dt>Why</dt><dd>One table replaces per-feature branches in the scheduler. An unknown feature degrades to "materialize the column", which is slow but never wrong.</dd></dl></div>
+
+<div class="card"><h3>Demand queue + write barrier</h3>
+<dl><dt>What</dt><dd>The only door from PROXY to LIVE.</dd>
+<dt>How</dt><dd>Section tasks go on Moonrise's prioritised executor. A write to a proxy (block break, explosion, piston, fluid, plugin <code>setType</code>) raises that task to blocking and waits, the same way a sync chunk load does. Generator threads never wait on tick threads, so parallel ticking cannot deadlock on it.</dd>
+<dt>Why</dt><dd>A write is the one thing that must never land on fake content. Reads may see filler, and the filler behaves like stone.</dd></dl></div>
+
+<div class="card"><h3>Persistence</h3>
+<dl><dt>What</dt><dd>LIVE saves as normal. PROXY and GENERATING both save as a flagged section with no block data.</dd>
+<dt>How</dt><dd>Add a <code>swift:gen</code> byte per section to the chunk NBT. Generation is pure, so a section that was mid-generation at a crash restarts and gives the same result.</dd>
+<dt>Exit</dt><dd>A <code>/swiftgen materialize &lt;radius|all&gt;</code> command and an offline batch tool. Vanilla Paper would read a flagged section as air, so a world must be materialized before it leaves the fork.</dd></dl></div>
+
+</div>
+
+<h2>Visibility service</h2>
+<p>This is the piece your follow-up made central. It answers one question per player: which sections could this player see in the next moment? Generation, block sending and entity tracking all read the same answer, so a cave cannot be generated but never sent, or sent while its zombies stay invisible.</p>
+
+<div class="diagram"><pre class="mermaid">
+%%{init: {"theme":"neutral"}}%%
+flowchart TD
+  S["Start: section holding the eye<br/>(and predicted eye after 0.5 s)"] --> POP["Pop section A,<br/>entered through face e,<br/>direction set D"]
+  POP --> F{"For each face f of A"}
+  F --> OPP{"f opposite to<br/>a direction in D?"}
+  OPP -- yes --> F
+  OPP -- no --> CON{"connectivity(A): e to f open?"}
+  CON -- no --> F
+  CON -- yes --> RNG{"neighbour B inside<br/>view distance?"}
+  RNG -- no --> F
+  RNG -- yes --> ST{"B state"}
+  ST -- LIVE --> ADD["add B to PVS,<br/>push (B, f, D + f)"]
+  ST -- "PROXY / GENERATING" --> DEM["demand B (VISIBLE, distance)<br/>add to frontier, stop this path"]
+  ADD --> POP
+  DEM -.->|"B becomes LIVE"| POP
+</pre></div>
+<p class="cap">This is the cave-culling search the vanilla client uses for rendering, run on the server against server-side content. The "never step back" rule is what keeps it close to line of sight.</p>
+
+<div class="grid">
+<div class="card"><h3>Section connectivity</h3>
+<dl><dt>What</dt><dd>15 bits per section saying which pairs of its 6 faces are joined by non-occluding blocks.</dd>
+<dt>How</dt><dd>Flood-fill the 4096 blocks using <code>BlockState.canOcclude()</code>, the same test the client uses. Run it when a section becomes LIVE, and again at most once per tick when blocks in it change.</dd>
+<dt>Why</dt><dd>Bases count automatically. Glass, doors and open trapdoors leave faces open, and solid walls close them. A sealed base reads as one closed box.</dd></dl></div>
+
+<div class="card"><h3>Prefetch ring and prediction</h3>
+<dl><dt>What</dt><dd>One extra hop past the visible set, plus a search from where the eye will be.</dd>
+<dt>How</dt><dd>Start a second search at eye + velocity × 0.5 s. An elytra at about 30 blocks per second moves about two sections in that time.</dd>
+<dt>Why</dt><dd>Reveal must happen before the player could see the section. Otherwise they see a stone wall turn into a cave.</dd></dl></div>
+
+<div class="card"><h3>Chunk sender</h3>
+<dl><dt>What</dt><dd>Decides per section whether the packet carries real blocks or filler.</dd>
+<dt>How</dt><dd>When a column is sent, any section not in the PVS is written as <code>proxyFill</code>. That hides caves, bases, ores and chests alike. When a section enters the PVS, send it in a section-blocks update, or resend the whole column if several sections changed in one tick. Hook in where Paper Anti-Xray already rewrites chunk packets.</dd>
+<dt>Why</dt><dd>The vanilla client only accepts whole columns, so a hidden section still has to be sent as something. Single-value filler is the cheapest something.</dd>
+<dt>Re-hide</dt><dd>Off by default. Once the client has a section, hiding it again costs bandwidth and stops nothing the player already saw. Turn on <code>rehide-blocks</code> if anti-ESP matters more than bandwidth.</dd></dl></div>
+
+<div class="card"><h3>Entity tracker</h3>
+<dl><dt>What</dt><dd>Hides entities, including players, that the viewer cannot see.</dd>
+<dt>How</dt><dd>Two stages. If the entity's section is not in the PVS, it is hidden with no further check. If it is, cast a few rays from the eye to the corners of its bounding box through cached LIVE blocks on the visibility thread. Show on first hit. Hide after about one second of misses, so an entity does not flicker at an edge.</dd>
+<dt>Why</dt><dd>The PVS is coarse. A whole connected cave counts as visible, so a mob behind a pillar in it needs the finer test. Rays are cheap when they only run for entities that pass the coarse stage.</dd>
+<dt>Also</dt><dd>Drop sound and particle packets whose source is in a hidden section. Otherwise footsteps give the base away.</dd></dl></div>
+</div>
+
+<h2>Do you need ray tracing?</h2>
+<div class="verdict"><strong>For generation and blocks, no. For entities, yes.</strong>
+<ul>
+<li><strong>Generation.</strong> A ray cannot cross a section that has not been generated yet, because there is nothing to test it against. A ray-based design ends up generating the frontier and then testing it, which is the graph search with more work.</li>
+<li><strong>Blocks.</strong> Rays are samples. A one-block cave mouth can fall between two of them and show up as a stone patch. The graph search is conservative, so it never misses an opening. Its cost is per section change, not per player per frame.</li>
+<li><strong>Entities.</strong> Here the graph is too coarse, and the work is small (few rays, only for entities that pass the PVS check). That is the job rays are good at.</li>
+</ul></div>
+
+<h2>Section life cycle</h2>
+<div class="diagram"><pre class="mermaid">
+%%{init: {"theme":"neutral"}}%%
+stateDiagram-v2
+  [*] --> PROXY: column below surface band
+  [*] --> GENERATING: column, inside band
+  PROXY --> GENERATING: demand (any cause)
+  GENERATING --> LIVE: noise, decorate, light, connectivity
+  GENERATING --> PROXY: crash or unload (saved as PROXY, regenerates the same)
+  LIVE --> LIVE: block change, recompute connectivity
+  state "per player" as PP {
+    HIDDEN --> REVEALED: section enters PVS and is LIVE
+    REVEALED --> HIDDEN: left PVS, only with rehide-blocks
+  }
+</pre></div>
+
+<h2>What changes in gameplay</h2>
+<div class="risk"><strong>These are real differences from vanilla, not bugs to discover later.</strong></div>
+<div class="tbl"><table>
+<tr><th>Area</th><th>Effect</th><th>Plan</th></tr>
+<tr><td>Cave mob spawning</td><td>A spawn attempt that lands in a proxy fails, because the proxy is solid. Fewer cave mobs means the mob cap fills at the surface instead.</td><td>The failed attempt files a <code>SPAWN_PROBE</code> demand at low priority. Proxies inside the 128-block spawn range then fill in over time. Configurable: <code>spawn-probe: materialize | skip</code>.</td></tr>
+<tr><td>Ore and feature layout</td><td>A feature that crosses sections reads its neighbours at noise level, not after their features. A few blocks can differ from vanilla for the same seed. Seed maps for ores will be slightly off.</td><td>Accepted. Vanilla itself depends on generation order at chunk borders.</td></tr>
+<tr><td>Fluids at the edge</td><td>Water next to a proxy sees a wall. When the proxy becomes real, that edge needs a fluid tick.</td><td>Mark boundary fluids for post-processing on LIVE, as <code>doFill</code> already does for aquifers.</td></tr>
+<tr><td>Plugins reading blocks</td><td><code>getBlockAt</code> on a proxy returns filler.</td><td>Reads stay cheap by default. <code>World#materializeSection</code> API and a config to make API reads blocking.</td></tr>
+<tr><td>Map renderers</td><td>BlueMap and Dynmap cave views show stone where nothing is generated yet.</td><td>Expected. Run materialize first if a full cave map matters.</td></tr>
+<tr><td>Nether, End</td><td>The Nether is mostly open cavern and the End is mostly air. Laziness saves little there.</td><td>Overworld only, per-dimension switch. The visibility side (hiding bases and entities) works in all three.</td></tr>
+</table></div>
+
+<h2>Where the time goes, and what it saves</h2>
+<p>The overworld has 24 sections from Y −64 to 320. Your fork's fill samples density for the whole height of every column. The surface band is usually 4 to 8 sections, and the sky above it is cheap to fill. The biggest share left is the 8 to 10 sections of solid underground that nobody near the column ever sees <span class="tag">(guess, not measured)</span>.</p>
+<p>The win is largest where players load far more columns than they go under, such as elytra travel, high view distance and the outer view-distance ring outside spawn range. It is smallest in a base area where everything nearby ends up generated anyway. Phase 0 has to replace these guesses with numbers before any later phase is judged.</p>
+
+<h2>Build order</h2>
+<p>Each phase lands as Paper patches on its own branch off <code>swift</code>, behind one config switch, and ends in a check you can rerun.</p>
+<div class="phase"><b>P0</b><p><strong>Measure first.</strong> A <code>run-bench</code> scenario that generates a fixed seed and region and reports ms per column per stage (noise, surface, carvers, features, light), plus bytes sent per player. Without it no later phase can claim a win.</p></div>
+<div class="phase"><b>P1</b><p><strong>Section-ranged noise.</strong> <code>DensityVolume</code> per section. Check: 24 section fills match one column fill, bit for bit, over 10,000 columns.</p></div>
+<div class="phase"><b>P2</b><p><strong>Proxy, write barrier, persistence.</strong> First version: the first demand on a column materializes its whole remainder with vanilla decoration. That proves the state machine, saving, reload, the blocking path and the client resend before per-section features exist. Check: fake-player GameTests that dig, blow up and flood into proxies and find real blocks, plus a restart mid-generation.</p></div>
+<div class="phase"><b>P3</b><p><strong>Visibility service and chunk sender.</strong> Connectivity, BFS and filler for hidden sections, so caves and bases are hidden from players before generation turns lazy. Check: a fake player on the surface receives filler for a sealed base 20 blocks down. After it digs in, it receives real blocks before it reaches them.</p></div>
+<div class="phase"><b>P4</b><p><strong>Entity culling.</strong> PVS check, rays and hysteresis, plus the sound and particle filter. Check: a hidden mob in a sealed room is never tracked. A mob in view is tracked within one tick.</p></div>
+<div class="phase"><b>P5</b><p><strong>Per-section decoration.</strong> Feature index, footprint registry and clipped replay. Replaces P2's whole-column materialize. Check: generating sections in random orders gives the same result. Diff against vanilla ores and report the share of blocks that differ.</p></div>
+<div class="phase"><b>P6</b><p><strong>Demand from visibility, spawn probes, materialize command.</strong> Then rerun P0 and compare.</p></div>
+
+<p class="cap">Draft for the Swift-ality/Paper fork. Code references are from the local checkout at <code>cd048e6b9</code>.</p>
+</div>
