@@ -401,6 +401,7 @@ tasks.register<JavaExec>("runGameTests") {
     val packs = providers.gradleProperty("gameTestPacks").orElse(rootProject.layout.projectDirectory.dir("gametests/packs").asFile.absolutePath)
     val runDirFile = runDir.get().asFile
     val keepWorld = providers.gradleProperty("gameTestKeepWorld").map { it.toBoolean() }.getOrElse(false)
+    val port = providers.gradleProperty("gameTestPort").getOrElse("25599") // Swift - lets two suites run on one machine
     doFirst {
         val dir = runDirFile
         if (!keepWorld) {
@@ -411,7 +412,7 @@ tasks.register<JavaExec>("runGameTests") {
         dir.resolve("eula.txt").writeText("eula=true\n")
         dir.resolve("server.properties").writeText(
             listOf(
-                "level-type=minecraft\\:flat", "generate-structures=false", "online-mode=false", "server-port=25599",
+                "level-type=minecraft\\:flat", "generate-structures=false", "online-mode=false", "server-port=$port",
                 "spawn-protection=0", "view-distance=4", "simulation-distance=4", "enable-query=false",
                 "spawn-monsters=false", "spawn-animals=false", "max-players=1"
             ).joinToString("\n", postfix = "\n")

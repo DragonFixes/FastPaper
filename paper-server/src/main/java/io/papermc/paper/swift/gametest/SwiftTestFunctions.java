@@ -62,6 +62,15 @@ public final class SwiftTestFunctions implements TestFunctionLoader {
         register.accept(key("path_villager_walks_to_target"), SwiftPathfindingTests::villagerWalksToTarget);
         register.accept(key("bench_async_pathfinding"), SwiftPathfindingTests::bench);
         register.accept(key("native_deflate_real_chunks"), SwiftNativeDeflateTests::realChunksRoundTrip);
+        register.accept(key("inside_fire_ignites"), SwiftInsideBlockTests::fireIgnitesAndHurts);
+        register.accept(key("inside_lava_ignites"), SwiftInsideBlockTests::lavaIgnitesAndHurts);
+        register.accept(key("inside_lava_cauldron_ignites"), SwiftInsideBlockTests::lavaCauldronIgnites);
+        register.accept(key("inside_water_extinguishes"), SwiftInsideBlockTests::waterExtinguishes);
+        register.accept(key("inside_water_cauldron_drains"), SwiftInsideBlockTests::waterCauldronExtinguishesAndDrains);
+        register.accept(key("inside_powder_snow_freezes"), SwiftInsideBlockTests::powderSnowFreezes);
+        register.accept(key("inside_burning_melts_powder_snow"), SwiftInsideBlockTests::burningMobMeltsPowderSnow);
+        register.accept(key("inside_mixed_field"), SwiftInsideBlockTests::mixedField);
+        register.accept(key("bench_inside_blocks"), SwiftInsideBlockTests::bench);
         register.accept(key("brain_piglin_admires_gold"), SwiftBrainTests::piglinAdmiresGold);
         register.accept(key("brain_all_types"), SwiftBrainLoopTests::allBrainTypes);
         register.accept(key("bench_brain_loop"), SwiftBrainLoopTests::bench);

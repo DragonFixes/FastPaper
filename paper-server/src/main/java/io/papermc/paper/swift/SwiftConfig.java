@@ -45,6 +45,8 @@ public final class SwiftConfig {
             List.of("Nearest-target searches trace line of sight nearest-first and stop at the first visible target (patch 0049).")),
         new Option("optimizations.sensor-sort", "swift.sensorSort", true,
             List.of("Brain sensors sort nearby entities by distance on plain numbers, same order (patch 0050).")),
+        new Option("optimizations.inside-effect-skip-empty", "swift.insideEffectSkipEmpty", true,
+            List.of("Inside-block effects (fire, water, powder snow ...) skip their per-entity flush when nothing was collected (patch 0058).")),
         new Option("optimizations.native-region-deflate", "swift.nativeDeflate", true,
             List.of("Chunk/entity/POI region data is (de)compressed by the bundled libdeflate through FFM, about 3.5x",
                 "faster; same zlib format, so worlds stay vanilla-readable (patch 0057). Linux/Windows x86_64 only,",

@@ -38,6 +38,7 @@ exception to the "same gameplay" rule and is off by default (see its section).
 | 0053 | Natural spawning looks up the biome only for water ambient mobs | `swift.spawnLazyBiome` |
 | 0054 | Box searches (pushing, `getEntities`) read entity boxes from flat copies, same order | `swift.packedBoxes` |
 | 0057 | Region files (chunks, entities, POI) are compressed by libdeflate through FFM, same zlib format | `swift.nativeDeflate` |
+| 0058 | Inside-block effects (fire, water, powder snow ...) skip their per-entity flush when nothing was collected | `swift.insideEffectSkipEmpty` |
 
 The numbers below come from spark profiles of real servers (ms of main-thread time per tick) and from
 benchmarks in the test suite.
@@ -568,6 +569,38 @@ fails `bothCodecsReadEachOther`.
 
 **Not covered:** ARM and macOS (no bundled library, JDK path, not run here), musl, and a Linux server run (the
 .so was built in WSL Ubuntu and round-tripped there through dlopen, but no Linux JVM loaded it in this change).
+
+---
+
+## 0058: inside-block effects skip empty flushes (`swift-invasive`)
+
+**Before:** every entity, every tick, runs `Entity#applyEffectsFromBlocks`, which collects what the blocks
+it is inside do to it (fire, lava, water, powder snow, cauldrons) in an `InsideBlockEffectApplier.StepBasedCollector`.
+The collector "flushes" its per-step lists at every block step and once more at the end: five effect types,
+two map lookups each, and `ArrayList#addAll` of empty lists, which allocates an empty array every time. For
+almost every entity nothing was collected, so all of that moves nothing. In profile GhlizX39EE (16 players,
+88 ms/tick) `applyEffectsFromBlocks` was 4.75 ms/tick, and about half of it was this flushing
+(`advanceStep` -> `flushStep`, `applyAndClear` -> `flushStep`). q: 1.96 ms/tick.
+
+**Now:** the collector counts the effects added since the last flush (`apply`, `runBefore`, `runAfter` are
+the only ways in; the lists are private). A flush with a count of zero returns at once. A flush that has
+something to move runs the original loop unchanged, so effect order and timing stay the same.
+
+**Gain:** `bench_inside_blocks` (200 cows standing still, some on short grass, switch flipped in the same
+server): 323 -> 69 ns per `applyEffectsFromBlocks` call, **4.65x**. Moving mobs walk more blocks, so their
+gain is smaller; on G's numbers this should take roughly 2 ms/tick off the 4.75 (estimate, measure with a
+new profile).
+
+**Tests:** behaviour tests for every vanilla path into the collector, green on unmodified code first:
+`inside_fire_ignites`, `inside_lava_ignites`, `inside_lava_cauldron_ignites`, `inside_water_extinguishes`,
+`inside_water_cauldron_drains` (burning pig is put out and the cauldron drops a level),
+`inside_powder_snow_freezes`, `inside_burning_melts_powder_snow`, plus `inside_mixed_field` (24 burning and
+normal mobs on a random field of fire, water, lava, powder snow, cobwebs, berries and pressure plates for
+80 ticks). `-Dswift.verify=true` checks at every skipped flush that the lists really are empty. A planted bug
+(`runBefore` not counted) fails `inside_water_cauldron_drains`.
+
+**Not covered:** the estimate for moving mobs, and parallel entity ticking (0045) was not run separately
+(the collector belongs to one entity, so no thread shares it).
 
 ---
 
