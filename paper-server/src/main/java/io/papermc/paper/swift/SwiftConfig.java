@@ -32,7 +32,7 @@ public final class SwiftConfig {
         new Option("optimizations.flat-brain-loop", "swift.flatBrainLoop", true,
             List.of("Mob brains loop over a prepared flat list (patch 0041).")),
         new Option("optimizations.poi-retention", "swift.poiRetain", true,
-            List.of("Far-away job-site POI data stays in memory for 30 s after a blocking load (patch 0042).")),
+            List.of("Repeated blocking POI loads (e.g. a far-away job site) read a memory copy of the disk data for 30 s instead of the disk (patch 0042).")),
         new Option("optimizations.poi-empty-search-cache", "swift.poiEmptySearchCache", true,
             List.of("Villagers skip bed/job searches that cannot find anything (patch 0043).")),
         new Option("optimizations.spawn-cost-skip", "swift.spawnCostSkip", true,

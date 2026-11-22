@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: swiftality <155652101+Swift-ality@users.noreply.github.com>
+Date: Fri, 20 Nov 2026 12:36:45 +0100
+Subject: [PATCH] Swift: Serve repeated blocking POI loads from memory
+
+PoiManager#getOrLoad on a chunk without loaded POI data parks the main
+thread on a disk read (ChunkHolderManager#loadPoiChunk) and drops the
+ticket right away, so callers asking every tick re-read it every tick.
+Villagers whose job site is far away (PoiCompetitorScan, never
+invalidated at that distance) did exactly that: about 190 blocking loads
+in 200 ticks in a test, 0.54 ms/tick of waiting in profile qJwhW316qQ.
+
+For 600 ticks after such a load, a per-world mirror keeps that chunk's
+POI data as the disk holds it: the tag the disk read returned, replaced
+by every later POI save of the chunk. A read with no read or write in
+flight is answered from the mirror (Moonrise's existing immediate
+completion path), so the bytes are the ones the disk read would return.
+Holders, tickets, POI load/unload and the village distance tracker are
+untouched. The first version kept the holder alive with a 600-tick
+ticket, which also kept village-centre sources alive (sectionsToVillage
+0 instead of 7 for 600 ticks; found by an adversarial review). In the
+test the wait drops from 42 ms to 23 ms per 200 ticks, 1 region read.
+See io.papermc.paper.swift.poi.PoiRetention. Disable with
+-Dswift.poiRetain=false.
+
+diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/io/MoonriseRegionFileIO.java b/ca/spottedleaf/moonrise/patches/chunk_system/io/MoonriseRegionFileIO.java
+index e9dc38d934ede23f17e18893ee207d9fbbd26449..44c1780c3e10802806760482263fa3d1b22ef8e8 100644
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/io/MoonriseRegionFileIO.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/io/MoonriseRegionFileIO.java
+@@ -775,6 +775,17 @@ public final class MoonriseRegionFileIO {
+             if (running == null) {
+                 // not scheduled
+ 
++                // Swift start - serve repeated blocking POI loads from memory (no read or write in flight: the mirror holds what the disk holds)
++                if (type == RegionFileType.POI_DATA && io.papermc.paper.swift.poi.PoiRetention.enabled) {
++                    final CompoundTag[] mirrored = new CompoundTag[1];
++                    if (((ChunkSystemServerLevel)world).moonrise$getChunkTaskScheduler().swiftPoiMirror.serve(keyInMap, mirrored)) {
++                        callbackInfo.data = mirrored[0];
++                        callbackInfo.completeNow = true;
++                        return null;
++                    }
++                }
++                // Swift end - serve repeated blocking POI loads from memory
++
+                 // set up task
+                 final ChunkIOTask newTask = new ChunkIOTask(
+                     world, taskController, chunkX, chunkZ, priority, new ChunkIOTask.InProgressRead()
+@@ -823,6 +834,10 @@ public final class MoonriseRegionFileIO {
+ 
+         // needs to be scheduled
+         if (callbackInfo.tasksNeedReadScheduling) {
++            if (type == RegionFileType.POI_DATA) {
++                io.papermc.paper.swift.poi.PoiRetention.DISK_READS.incrementAndGet(); // Swift start - serve repeated blocking POI loads from memory
++                ((ChunkSystemServerLevel)world).moonrise$getChunkTaskScheduler().swiftPoiMirror.onDiskRead(key); // Swift end
++            }
+             taskController.startTask(ret);
+             ret.scheduleReadIO();
+         } else if (callbackInfo.completeNow) {
+@@ -830,7 +845,7 @@ public final class MoonriseRegionFileIO {
+                 final boolean copy = !(onComplete instanceof NoCopyNBTData);
+                 onComplete.accept(callbackInfo.data == null ? null : (copy ? callbackInfo.data.copy() : callbackInfo.data), callbackInfo.throwable);
+             } catch (final Throwable thr) {
+-                LOGGER.error("Callback " + ConcurrentUtil.genericToString(onComplete) + " synchronously failed to handle chunk data for task " + ret.toString(), thr);
++                LOGGER.error("Callback " + ConcurrentUtil.genericToString(onComplete) + " synchronously failed to handle chunk data for task " + String.valueOf(ret), thr); // Swift - ret is null for a mirrored POI read
+             }
+         } else {
+             // we're waiting on a task we didn't schedule, so raise its priority to what we want
+diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
+index e984597384eba6b8ac877f2803bdbed754ac7ba8..8578f2c0e4f2dbb259e9a876b88d2cb37821861b 100644
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
+@@ -1121,6 +1121,7 @@ public final class ChunkHolderManager {
+             try {
+                 current = this.getOrCreateChunkHolder(chunkX, chunkZ);
+                 if (null == (ret = current.getPoiChunk())) {
++                    this.taskScheduler.swiftPoiMirror.markBlockingLoad(ca.spottedleaf.moonrise.common.util.CoordinateUtils.getChunkKey(chunkX, chunkZ)); // Swift - serve repeated blocking POI loads from memory
+                     loadTask = current.getOrLoadPoiData((final GenericDataLoadTask.TaskResult<PoiChunk, Throwable> result) -> {
+                         completed.setPlain(result.left());
+                         isCompleted.set(true);
+@@ -1140,6 +1141,8 @@ public final class ChunkHolderManager {
+         }
+ 
+         if (loadTask != null) {
++            io.papermc.paper.swift.poi.PoiRetention.BLOCKING_LOADS.incrementAndGet(); // Swift - serve repeated blocking POI loads from memory
++            final long swiftWaitStart = System.nanoTime(); // Swift - serve repeated blocking POI loads from memory
+             loadTask.schedule();
+ 
+             // Note: no need to busy wait on the chunk queue, poi load will complete off-main
+@@ -1153,6 +1156,7 @@ public final class ChunkHolderManager {
+             if (interrupted) {
+                 Thread.currentThread().interrupt();
+             }
++            io.papermc.paper.swift.poi.PoiRetention.WAIT_NANOS.addAndGet(System.nanoTime() - swiftWaitStart); // Swift - serve repeated blocking POI loads from memory
+ 
+             ret = completed.getPlain();
+         } // else: became loaded during the scheduling attempt, need to ensure load() is invoked
+diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkTaskScheduler.java b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkTaskScheduler.java
+index 130fc0ea8326ab406910b5429acd99ea91708db2..56edb1bb0c04c4671a8e1e2c373a7222211d651f 100644
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkTaskScheduler.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkTaskScheduler.java
+@@ -117,6 +117,7 @@ public final class ChunkTaskScheduler {
+     private final PrioritisedTaskQueue mainThreadExecutor = new PrioritisedTaskQueue();
+ 
+     public final ChunkHolderManager chunkHolderManager;
++    public final io.papermc.paper.swift.poi.PoiRetention.Mirror swiftPoiMirror = new io.papermc.paper.swift.poi.PoiRetention.Mirror(); // Swift - serve repeated blocking POI loads from memory
+ 
+     static {
+         ((ChunkSystemChunkStatus)ChunkStatus.EMPTY).moonrise$setWriteRadius(0);
+diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/NewChunkHolder.java b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/NewChunkHolder.java
+index 1dc745d058d605dde0d10dea82c31b3303d670be..247269cba9ae741eae01bd33d35ac48123acf542 100644
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/NewChunkHolder.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/NewChunkHolder.java
+@@ -1835,6 +1835,7 @@ public final class NewChunkHolder {
+             }
+ 
+             MoonriseRegionFileIO.scheduleSave(this.world, this.chunkX, this.chunkZ, save, MoonriseRegionFileIO.RegionFileType.POI_DATA);
++            this.scheduler.swiftPoiMirror.onWrite(CoordinateUtils.getChunkKey(this.chunkX, this.chunkZ), save); // Swift - serve repeated blocking POI loads from memory
+             this.lastPoiSaveNull = save == null;
+             if (poiSave != null) {
+                 poiSave[0] = Completable.completed(save);
+diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkLoadTask.java b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkLoadTask.java
+index 7463cf5bf871033a0e5f6d54dd0d427c474d7cd4..f03dd93963204da2b6ae3bfba42068feae62b879 100644
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkLoadTask.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/task/ChunkLoadTask.java
+@@ -406,6 +406,9 @@ public final class ChunkLoadTask extends ChunkProgressionTask {
+ 
+         @Override
+         protected TaskResult<PoiChunk, Throwable> runOffMain(final CompoundTag data, final Throwable throwable) {
++            if (throwable == null) {
++                this.scheduler.swiftPoiMirror.onRead(ca.spottedleaf.moonrise.common.util.CoordinateUtils.getChunkKey(this.chunkX, this.chunkZ), data); // Swift - serve repeated blocking POI loads from memory
++            }
+             if (throwable != null) {
+                 LOGGER.error("Failed to load poi data for task: " + this.toString() + ", poi data will be lost", throwable);
+                 return new TaskResult<>(PoiChunk.empty(this.world, this.chunkX, this.chunkZ), null);

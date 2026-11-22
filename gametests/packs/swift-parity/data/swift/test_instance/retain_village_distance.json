@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:function",
+  "function": "swift:retain_village_distance",
+  "environment": "swift:day",
+  "structure": "swift:platform",
+  "max_ticks": 800,
+  "setup_ticks": 0,
+  "required": true
+}

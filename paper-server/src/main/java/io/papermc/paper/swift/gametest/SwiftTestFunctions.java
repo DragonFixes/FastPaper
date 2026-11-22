@@ -44,6 +44,8 @@ public final class SwiftTestFunctions implements TestFunctionLoader {
         register.accept(key("fake_player_basics"), SwiftPlayerCommandTests::basics);
         register.accept(key("poi_villager_claims_bed"), SwiftPoiTests::claimsBed);
         register.accept(key("poi_far_job_site"), SwiftPoiTests::farJobSite);
+        register.accept(key("retain_village_distance"), SwiftRetentionTests::villageDistanceAfterLoad);
+        register.accept(key("poi_mirror_differential"), SwiftRetentionTests::mirrorDifferential);
         register.accept(key("spawn_state_differential"), SwiftSpawnTests::spawnStateDifferential);
         register.accept(key("spawn_lazy_biome_differential"), SwiftSpawnTests::lazyBiomeDifferential);
         register.accept(key("boxes_differential"), SwiftBoxTests::differential);
