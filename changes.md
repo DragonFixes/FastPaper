@@ -37,6 +37,7 @@ exception to the "same gameplay" rule and is off by default (see its section).
 | 0052 | Parallel ticking: village-distance queries take turns (fixes a crash in the tracker's queue) | part of `swift.asyncEntities` |
 | 0053 | Natural spawning looks up the biome only for water ambient mobs | `swift.spawnLazyBiome` |
 | 0054 | Box searches (pushing, `getEntities`) read entity boxes from flat copies, same order | `swift.packedBoxes` |
+| 0057 | Region files (chunks, entities, POI) are compressed by libdeflate through FFM, same zlib format | `swift.nativeDeflate` |
 
 The numbers below come from spark profiles of real servers (ms of main-thread time per tick) and from
 benchmarks in the test suite.
@@ -516,6 +517,57 @@ killed or spawned. Then each entity's pushing search and two wider box searches 
 with the entities' own boxes. 63,435 searches compared, all identical, same order. `-Dswift.verify=true`
 checks every copy against the entity's own box during every search. The whole suite also runs with
 parallel ticking, which exercises the stale-and-rebuild path.
+
+---
+
+## 0057: region files are compressed by libdeflate through FFM (`swift-invasive`)
+
+**Before:** every chunk, entity and POI save goes through `java.util.zip` (`DeflaterOutputStream`, the JDK's
+stock zlib) and every load through `InflaterInputStream`. That work runs on the chunk I/O and worker threads,
+not the main thread, but it shows up as slower chunk loading, slower pre-generation and autosave CPU.
+
+**Now:** `RegionFileVersion.VERSION_DEFLATE` hands the whole chunk to libdeflate (bundled, MIT, 1.26) with one
+Foreign Function & Memory call (a `critical` downcall straight on the Java byte array, no copy into native
+memory). A chunk is already one complete buffer on both sides: `RegionFile` reads the whole stream into memory
+before decoding, and saves collect into a `ChunkBuffer`, so nothing is streamed piece by piece.
+- **Same file format.** libdeflate reads and writes standard zlib streams. Worlds stay readable by vanilla,
+  stock Paper and every region tool, and existing worlds load as before. Only the compressed bytes differ
+  (another encoder picks other matches); the decompressed chunk is identical.
+- **Anything unexpected uses the old code.** A stream libdeflate rejects (corrupt, truncated, preset
+  dictionary) is decoded by the original `InflaterInputStream` on the same bytes, so damaged chunks fail or
+  load exactly as before (stock Paper even loads a chunk whose checksum bytes are cut off, because it stops
+  reading once the NBT ends; that still works). No library for the OS (ARM, macOS, musl/Alpine) or a failed
+  start-up self test means `java.util.zip`, with one log line saying so.
+- One compressor and one decompressor per thread; they are freed when the thread dies.
+- Natives in the jar: `linux_x86_64/libdeflate.so` (needs glibc 2.14+) and `windows_x86_64/libdeflate.dll`,
+  built from the libdeflate 1.26 source with `-O2`; libdeflate picks its AVX2/BMI2 code at run time.
+- Switches: `swift.nativeDeflate` (swift.yml `optimizations.native-region-deflate`), level
+  `swift.nativeDeflate.level` (0-12, default 6 = the JDK's default, same file size), and
+  `swift.nativeDeflate.library=<path>` to use a system libdeflate instead.
+
+**Gain:** 3,715 real chunks from the test world (7.1 MB compressed, 53 MB raw), one thread, Windows, this PC:
+
+| | `java.util.zip` (Paper) | libdeflate via FFM |
+|---|---|---|
+| load (decompress) | 88.6 ms (600 MB/s) | 25.3 ms (2.1 GB/s), **3.5x** |
+| save, level 6 | 685 ms | 205 ms, **3.3x**, files +1.4% |
+| save, level 1 | - | 115 ms, 5.9x, files +8% |
+
+Per chunk that is about 24 -> 7 us to load and 184 -> 55 us to save. The time to build the NBT itself is
+not included and does not change. Main-thread MSPT only gains where the main thread waits for a chunk.
+
+**Tests:** JUnit `SwiftNativeDeflateTest`: library loads on Linux/Windows x86_64; six payloads (empty, 1 byte,
+text, 300 KB noise, 24 MB of zeros to force buffer growth, 2 MB mixed) written in uneven pieces, each codec
+reading the other's output back bit-exact; 600+ corrupt, truncated and trailing-junk streams give the same
+bytes or the same exception class as the JDK; 40 chunks (one big enough for an external `.mcc` file) written
+and read through a real `RegionFile` in all four native/JDK combinations. GameTest `native_deflate_real_chunks`:
+the chunks around the test (with a chest, water and redstone placed) serialised by the real save code and
+round-tripped through all four combinations. `-Dswift.verify=true` decodes every native read with the JDK as
+well and checks that the JDK reads back every native save. A planted bug (native saves lose their last byte)
+fails `bothCodecsReadEachOther`.
+
+**Not covered:** ARM and macOS (no bundled library, JDK path, not run here), musl, and a Linux server run (the
+.so was built in WSL Ubuntu and round-tripped there through dlopen, but no Linux JVM loaded it in this change).
 
 ---
 

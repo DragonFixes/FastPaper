@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:function",
+  "function": "swift:native_deflate_real_chunks",
+  "environment": "swift:default",
+  "structure": "swift:platform",
+  "max_ticks": 40,
+  "setup_ticks": 0,
+  "required": true
+}

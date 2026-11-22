@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: swiftality <155652101+Swift-ality@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 13:46:57 +0100
+Subject: [PATCH] Swift: region deflate through libdeflate via FFM
+
+
+diff --git a/net/minecraft/world/level/chunk/storage/RegionFileVersion.java b/net/minecraft/world/level/chunk/storage/RegionFileVersion.java
+index 2dac66514278317deb2d6bf222888a885c0479b8..83e027a431c0777c562ee12f7477958b9ae8237a 100644
+--- a/net/minecraft/world/level/chunk/storage/RegionFileVersion.java
++++ b/net/minecraft/world/level/chunk/storage/RegionFileVersion.java
+@@ -28,7 +28,11 @@ public class RegionFileVersion {
+     );
+     public static final RegionFileVersion VERSION_DEFLATE = register(
+         new RegionFileVersion(
+-            2, "deflate", in -> new FastBufferedInputStream(new InflaterInputStream(in)), out -> new BufferedOutputStream(new DeflaterOutputStream(out))
++            // Swift start - libdeflate through FFM, same zlib format; JDK path kept as fallback
++            2, "deflate",
++            in -> io.papermc.paper.swift.compression.SwiftNativeDeflate.inflating(in, i -> new FastBufferedInputStream(new InflaterInputStream(i))),
++            out -> io.papermc.paper.swift.compression.SwiftNativeDeflate.deflating(out, o -> new BufferedOutputStream(new DeflaterOutputStream(o)))
++            // Swift end - libdeflate through FFM, same zlib format; JDK path kept as fallback
+         )
+     );
+     public static final RegionFileVersion VERSION_NONE = register(new RegionFileVersion(3, "none", FastBufferedInputStream::new, BufferedOutputStream::new));

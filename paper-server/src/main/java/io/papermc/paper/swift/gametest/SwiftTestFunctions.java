@@ -61,6 +61,7 @@ public final class SwiftTestFunctions implements TestFunctionLoader {
         register.accept(key("path_zombie_hunts_through_maze"), SwiftPathfindingTests::zombieHuntsThroughMaze);
         register.accept(key("path_villager_walks_to_target"), SwiftPathfindingTests::villagerWalksToTarget);
         register.accept(key("bench_async_pathfinding"), SwiftPathfindingTests::bench);
+        register.accept(key("native_deflate_real_chunks"), SwiftNativeDeflateTests::realChunksRoundTrip);
         register.accept(key("brain_piglin_admires_gold"), SwiftBrainTests::piglinAdmiresGold);
         register.accept(key("brain_all_types"), SwiftBrainLoopTests::allBrainTypes);
         register.accept(key("bench_brain_loop"), SwiftBrainLoopTests::bench);
