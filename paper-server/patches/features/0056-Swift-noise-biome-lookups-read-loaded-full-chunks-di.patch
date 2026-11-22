@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: swiftality <155652101+Swift-ality@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 10:18:08 +0100
+Subject: [PATCH] Swift: noise biome lookups read loaded full chunks directly
+
+
+diff --git a/net/minecraft/world/level/Level.java b/net/minecraft/world/level/Level.java
+index 9a1da7958b009a936c7152a7f866682a042209b4..9d4690bb09aecb1bb4c38dda7ab28f926c73dfc9 100644
+--- a/net/minecraft/world/level/Level.java
++++ b/net/minecraft/world/level/Level.java
+@@ -816,6 +816,24 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+      */
+     @Override
+     public Holder<Biome> getNoiseBiome(final int x, final int y, final int z) {
++        // Swift start - noise biome fast path: a loaded full chunk is what the BIOMES lookup would reach anyway
++        // (through its ImposterProtoChunk wrapper), so read it from the full-chunk table and skip the holder lookup
++        if (io.papermc.paper.swift.level.SwiftBiomeLookup.fullChunkFastPath) {
++            final ChunkAccess full = this.getChunkIfLoadedImmediately(x >> 2, z >> 2);
++            if (full != null) {
++                final Holder<Biome> fast = full.getNoiseBiome(x, y, z);
++                if (io.papermc.paper.swift.SwiftVerify.ENABLED) {
++                    io.papermc.paper.swift.SwiftVerify.checked();
++                    final ChunkAccess slowChunk = this.getChunk(x >> 2, z >> 2, ChunkStatus.BIOMES, false);
++                    final Holder<Biome> slow = slowChunk != null ? slowChunk.getNoiseBiome(x, y, z) : this.getUncachedNoiseBiome(x, y, z);
++                    if (slow != fast) {
++                        io.papermc.paper.swift.SwiftVerify.mismatch("Level#getNoiseBiome", x + "," + y + "," + z + " fast=" + fast + " slow=" + slow);
++                    }
++                }
++                return fast;
++            }
++        }
++        // Swift end - noise biome fast path
+         final ChunkAccess chunk = this.getChunk(x >> 2, z >> 2, ChunkStatus.BIOMES, false);
+ 
+         return chunk != null ? chunk.getNoiseBiome(x, y, z) : this.getUncachedNoiseBiome(x, y, z);

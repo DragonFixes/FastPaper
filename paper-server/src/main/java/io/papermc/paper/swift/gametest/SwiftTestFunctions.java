@@ -47,6 +47,7 @@ public final class SwiftTestFunctions implements TestFunctionLoader {
         register.accept(key("spawn_state_differential"), SwiftSpawnTests::spawnStateDifferential);
         register.accept(key("spawn_lazy_biome_differential"), SwiftSpawnTests::lazyBiomeDifferential);
         register.accept(key("boxes_differential"), SwiftBoxTests::differential);
+        register.accept(key("biome_lookup_differential"), SwiftBiomeTests::differential);
         register.accept(key("bench_packed_boxes"), SwiftBoxTests::bench);
         register.accept(key("bench_spawn_state"), SwiftSpawnTests::bench);
         register.accept(key("bench_poi_hall_searches"), SwiftPoiTests::hallSearches);
