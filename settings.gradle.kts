@@ -13,23 +13,23 @@ if (!file(".git").exists()) {
     val errorText = """
 
         =====================[ ERROR ]=====================
-         The Paper project directory is not a properly cloned Git repository.
+         The FastPaper project directory is not a properly
+         cloned Git repository.
 
-         In order to build Paper from source you must clone
-         the Paper repository using Git, not download a code
-         zip from GitHub.
+         In order to build FastPaper from source you must
+         clone the FastPaper repository using Git, not
+         download a code zip from GitHub:
 
-         Built Paper jars are available for download at
-         https://papermc.io/downloads/paper
+         git clone https://github.com/DragonFixes/FastPaper.git
 
-         See https://github.com/PaperMC/Paper/blob/main/CONTRIBUTING.md
-         for further information on building and modifying Paper.
+         See https://github.com/DragonFixes/FastPaper
+         for further information on building FastPaper.
         ===================================================
     """.trimIndent()
     error(errorText)
 }
 
-rootProject.name = "paper"
+rootProject.name = "fastpaper"
 
 for (name in listOf("paper-api", "paper-server")) {
     include(name)

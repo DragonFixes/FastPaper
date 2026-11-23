@@ -30,7 +30,9 @@ public record ServerBuildInfoImpl(
     private static final String ATTRIBUTE_GIT_BRANCH = "Git-Branch";
     private static final String ATTRIBUTE_GIT_COMMIT = "Git-Commit";
 
-    private static final String BRAND_PAPER_NAME = "Paper";
+    // Brand used when the jar manifest carries no brand attributes (e.g. running from an IDE).
+    private static final Key BRAND_FASTPAPER_ID = Key.key("dragonfixes", "fastpaper");
+    private static final String BRAND_FASTPAPER_NAME = "FastPaper";
 
     private static final String BUILD_DEV = "DEV";
 
@@ -42,9 +44,9 @@ public record ServerBuildInfoImpl(
         this(
             getManifestAttribute(manifest, ATTRIBUTE_BRAND_ID)
                 .map(Key::key)
-                .orElse(BRAND_PAPER_ID),
+                .orElse(BRAND_FASTPAPER_ID),
             getManifestAttribute(manifest, ATTRIBUTE_BRAND_NAME)
-                .orElse(BRAND_PAPER_NAME),
+                .orElse(BRAND_FASTPAPER_NAME),
             SharedConstants.getCurrentVersion().id(),
             SharedConstants.getCurrentVersion().name(),
             getManifestAttribute(manifest, ATTRIBUTE_BUILD_NUMBER)
@@ -61,7 +63,8 @@ public record ServerBuildInfoImpl(
 
     @Override
     public boolean isBrandCompatible(final @NotNull Key brandId) {
-        return brandId.equals(this.brandId);
+        // FastPaper is a Paper fork, so plugins that check for Paper's brand still work.
+        return brandId.equals(this.brandId) || brandId.equals(BRAND_PAPER_ID);
     }
 
     @Override
