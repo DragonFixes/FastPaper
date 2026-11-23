@@ -1,35 +1,46 @@
-Paper [![Version](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Fartifactory.papermc.io%2Fartifactory%2Funiverse%2Fio%2Fpapermc%2Fpaper%2Fpaper-api%2Fmaven-metadata.xml&strategy=highestVersion&filter=26.3.*&label=version&color=%23344ceb
-)](https://papermc.io/downloads/paper)
-[![Paper Build Status](https://img.shields.io/github/actions/workflow/status/PaperMC/Paper/release-26.3.yaml?branch=main)](https://github.com/PaperMC/Paper/actions)
-[![Discord](https://img.shields.io/discord/289587909051416579.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/papermc)
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/papermc?label=GitHub%20Sponsors)](https://github.com/sponsors/PaperMC)
-[![Open Collective](https://img.shields.io/opencollective/all/papermc?label=OpenCollective%20Sponsors)](https://opencollective.com/papermc)
-===========
+FastPaper
+=========
 
-The most widely used, high-performance Minecraft server that aims to fix gameplay and mechanics inconsistencies.
+FastPaper is a performance fork of [Paper](https://github.com/PaperMC/Paper) for Minecraft 26.3.
+It is **not Paper** and is not made or supported by the PaperMC team.
 
+Repository: <https://github.com/DragonFixes/FastPaper>
 
-**Support and Project Discussion:**
-- [Our forums](https://forums.papermc.io/) or [Discord](https://discord.gg/papermc)
-
-How To (Server Admins)
+What it changes
 ------
-Paperclip is a jar file that you can download and run just like a normal jar file.
+FastPaper builds on the Swift performance patches by
+[Swift-ality](https://github.com/Swift-ality/Paper). The rule for those changes is that gameplay
+stays the same: the server does less work to reach the same result, by skipping work whose answer
+is already known, caching answers until their inputs change, or walking less data (for example an
+index for `@e[type=...]` selectors instead of scanning every entity).
 
-Download Paper from our [downloads page](https://papermc.io/downloads/paper).
+Each change can be switched off at startup with a `-D` flag, so it can be disabled on a live server
+without a rebuild. A few changes alter tick order (parallel entity ticking, async pathfinding) and
+are off by default.
 
-Run the Paperclip jar directly from your server. Just like old times.
+* [changes.md](changes.md): every change, what it does, its switch, and measured gains
+* [docs/swift-perf-candidates.md](docs/swift-perf-candidates.md): profiled candidates for future work
+* [gametests/README.md](gametests/README.md): the gameplay-parity test suite
 
-* Documentation on using Paper: [docs.papermc.io](https://docs.papermc.io)
-* For a sneak peek at upcoming features, [see here](https://github.com/PaperMC/Paper/projects)
-
-How To (Plugin Developers)
+Support
 ------
-* See our API [here](paper-api)
-* See upcoming, pending, and recently added API [here](https://github.com/orgs/PaperMC/projects/2/views/4)
-* Paper API javadocs here: [papermc.io/javadocs](https://papermc.io/javadocs/)
-#### Repository (for paper-api)
-See [the docs](https://docs.papermc.io/paper/dev/project-setup/#adding-paper-as-a-dependency) for more details.
+Report bugs and ask questions on the
+[FastPaper issue tracker](https://github.com/DragonFixes/FastPaper/issues).
+
+Do not report FastPaper problems to Paper's issue tracker, forums or Discord. If a bug also happens
+on an unmodified Paper build, report it to Paper from that build.
+
+Server admins
+------
+FastPaper runs like a Paper server: start the paperclip jar with `java -jar`. Paper's
+[documentation](https://docs.papermc.io) applies to configuration and plugins, except for the
+FastPaper-specific switches listed in [changes.md](changes.md).
+
+Plugin developers
+------
+FastPaper keeps the Paper API. Plugins written for Paper 26.3 run on it unchanged, and you build
+against Paper's own `paper-api` artifact:
+
 ##### Gradle
 ```kotlin
 repositories {
@@ -46,8 +57,8 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
 }
 ```
-##### Maven
 
+##### Maven
 ```xml
 <repository>
     <id>papermc</id>
@@ -64,38 +75,36 @@ java {
 </dependency>
 ```
 
-How To (Compiling Jar From Source)
+Building from source
 ------
-To compile Paper, you need JDK 25 and an internet connection.
+You need JDK 25, Git and an internet connection. Clone the repository with Git (a zip download
+will not build), then on Windows run:
 
-Clone this repo, run `./gradlew applyPatches`, then `./gradlew createPaperclipJar` from your terminal. You can find the compiled jar in the `paper-server/build/libs` directory.
+```bat
+scripts\build-deploy.bat
+```
 
-To get a full list of tasks, run `./gradlew tasks`.
+This applies the patches, builds the server jar and puts it in `deploy\`. Other helper scripts are
+in `scripts\`; see [AGENTS.md](AGENTS.md) for the list.
 
-How To (Pull Request)
+With Gradle directly:
+
+```
+./gradlew applyPatches
+./gradlew createMojmapPaperclipJar
+```
+
+The jar is written to `paper-server/build/libs`. Run `./gradlew tasks` for the full task list.
+
+Contributing
 ------
-See [Contributing](CONTRIBUTING.md)
+Open pull requests against the `develop` branch of
+[DragonFixes/FastPaper](https://github.com/DragonFixes/FastPaper). The patch workflow is described
+in [CONTRIBUTING.md](CONTRIBUTING.md), which comes from Paper and still applies to how patches are
+made and rebuilt.
 
-Old Versions (1.21.3 and below)
+Credits
 ------
-For branches of versions 1.8-1.21.3, please see our [archive repository](https://github.com/PaperMC/Paper-archive).
-
-Support Us
-------
-First of all, thank you for considering helping out, we really appreciate that!
-
-PaperMC has various recurring expenses, mostly related to infrastructure. Paper uses [Open Collective](https://opencollective.com/) via the [Open Source Collective fiscal host](https://opencollective.com/opensource) to manage expenses. Open Collective allows us to be extremely transparent, so you can always see how your donations are used. You can read more about financially supporting PaperMC [on our website](https://papermc.io/sponsors).
-
-You can find our collective [here](https://opencollective.com/papermc), or you can donate via GitHub Sponsors [here](https://github.com/sponsors/PaperMC), which will also go towards the collective.
-
-Special Thanks To:
--------------
-
-[![CI powered by namespace badge](https://assets.papermc.io/sponsors/namespace-oss-badge.svg)](https://namespace.so/github-actions/?utm_source=oss&utm_campaign=papermc)
-
-[![YourKit-Logo](https://www.yourkit.com/images/yklogo.png)](https://www.yourkit.com/)
-
-[YourKit](https://www.yourkit.com/), makers of the outstanding java profiler, support open source projects of all kinds with their full featured [Java](https://www.yourkit.com/java/profiler) and [.NET](https://www.yourkit.com/.net/profiler) application profilers. We thank them for granting Paper an OSS license so that we can make our software the best it can be.
-
-All our sponsors!  
-[![Sponsor Image](https://raw.githubusercontent.com/PaperMC/papermc.io/data/sponsors.png)](https://papermc.io/sponsors)
+FastPaper is based on [Paper](https://github.com/PaperMC/Paper) by the PaperMC team and on the
+Swift patches by [Swift-ality](https://github.com/Swift-ality/Paper). See [LICENSE.md](LICENSE.md)
+for licensing.
