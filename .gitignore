@@ -54,3 +54,6 @@ paper-server/src/minecraft/
 # Swift - local test server
 run-server/
 run-bench/
+
+# FastPaper - built server jars and local test server (scripts\build-deploy, scripts\run-server)
+/deploy/
