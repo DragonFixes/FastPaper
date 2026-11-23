@@ -76,11 +76,11 @@ repository root.
 
 | Script | What it does |
 |---|---|
-| `build-deploy` | Deletes `deploy\*.jar`, applies patches, runs `createMojmapPaperclipJar`, copies the jar into `deploy\` |
+| `build-deploy` | Deletes `deploy\*.jar`, applies patches, runs `createPaperclipJar`, copies the jar into `deploy\` |
 | `apply-patches` | `gradlew applyPatches` |
-| `rebuild-patches` | `gradlew rebuildPatches` (after committing in `src/minecraft`) |
+| `rebuild-patches` | `gradlew rebuildPatches` (after committing in `src/minecraft`); `-Fixup` runs `fixupSourcePatches` first |
 | `run-server` | Runs the jar from `deploy\` in a server folder |
-| `sync-upstream` | Fetches all remotes and merges a ref into the current branch |
+| `sync-upstream` | Fetches `paper` and `upstream`, reports ahead/behind, optionally merges a ref (`-NoFetch` skips the fetch; never pushes) |
 | `clean` | Removes build output (and optionally `deploy\`) |
 
 ```powershell
@@ -91,6 +91,7 @@ scripts\build-deploy.bat -DryRun         # show what would happen
 
 scripts\apply-patches.bat
 scripts\rebuild-patches.bat
+scripts\rebuild-patches.bat -Fixup                    # fold fixup commits first
 
 scripts\run-server.bat                                   # default memory, no GUI
 scripts\run-server.bat -Memory 8G -AcceptEula

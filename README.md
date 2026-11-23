@@ -91,7 +91,7 @@ With Gradle directly:
 
 ```
 ./gradlew applyPatches
-./gradlew createMojmapPaperclipJar
+./gradlew createPaperclipJar
 ```
 
 The jar is written to `paper-server/build/libs`. Run `./gradlew tasks` for the full task list.
