@@ -22,6 +22,8 @@ dependencies {
 paperweight {
     minecraftVersion = providers.gradleProperty("mcVersion")
     gitFilePatches = false
+    // Base name of the bundler/paperclip jars (fastpaper-paperclip-<version>.jar)
+    bundlerJarName = "fastpaper"
 
     updatingMinecraft {
         //oldPaperCommit = "e5fe71723e2ffde7cc9fafc085ac3bb73e63175e"
