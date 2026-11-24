@@ -688,10 +688,16 @@ FastPaper adaptations inside 0059-0063:
   and fall back to the concurrent map elsewhere (Swift's entity threads).
 - Per-world MSPT tracking runs in the normal serial world loop.
 - Villager POI search radius (Purpur option) feeds Swift's empty-search cache.
+- Leaf's cached collision lists are per thread, not per world, so entities colliding on Swift's
+  entity threads do not share them.
+- The global temptation lookup publishes each per-tick result once (compare-and-set), so mobs on
+  several threads never see a half-filled set.
+- Leaf's biome cache (`optimize-biome`) is skipped while entities tick in parallel.
+- Unflushed packet sending (Paper PR via Leaf) falls back to normal sending on channels whose
+  event loop is not a `SingleThreadEventLoop` (embedded and local channels).
 
-Leaf's patches have not been run through the gameplay-parity suite in the parallel modes
-(`swift.asyncEntities`, `swift.asyncPathfinding`). Run it several times before enabling those
-together with Leaf.
+The gameplay-parity suite passes with Leaf in `swift.asyncEntities` mode (several runs) and with
+`swift.verify`. `swift.asyncPathfinding` together with Leaf has not been run through it yet.
 
 ## How the changes are tested
 
