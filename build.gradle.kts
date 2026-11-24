@@ -50,6 +50,13 @@ subprojects {
     repositories {
         mavenCentral()
         maven(paperMavenPublicUrl)
+        // Leaf's repository hosts ConfigurationMaster and the spark builds Leaf's spark integration needs
+        maven("https://maven.leafmc.one/snapshots/") {
+            content {
+                includeGroup("com.github.thatsmusic99")
+                includeGroup("me.lucko")
+            }
+        }
     }
 
     extensions.configure<PublishingExtension> {

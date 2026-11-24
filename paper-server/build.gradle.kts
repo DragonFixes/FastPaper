@@ -38,6 +38,7 @@ tasks.generateDevelopmentBundle {
     libraryRepositories.addAll(
         "https://repo.maven.apache.org/maven2/",
         paperMavenPublicUrl,
+        "https://maven.leafmc.one/snapshots/",
     )
 }
 
