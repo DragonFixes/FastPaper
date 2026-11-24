@@ -16,7 +16,7 @@
      private static final long OVERLOADED_WARNING_INTERVAL_NANOS = 10L * TimeUtil.NANOSECONDS_PER_SECOND;
      private static final int OVERLOADED_TICKS_WARNING_INTERVAL = 100;
 @@ -215,7 +_,7 @@
-     protected final PlayerDataStorage playerDataStorage;
+     public final PlayerDataStorage playerDataStorage;
      private final SavedDataStorage savedDataStorage;
      private final List<Runnable> tickables = Lists.newArrayList();
 -    private final GameRules gameRules;

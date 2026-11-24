@@ -1,7 +1,7 @@
 --- a/net/minecraft/server/players/PlayerList.java
 +++ b/net/minecraft/server/players/PlayerList.java
 @@ -115,27 +_,37 @@
-     private static final int SEND_PLAYER_INFO_INTERVAL = 600;
+     public static final int SEND_PLAYER_INFO_INTERVAL = 600;
      private static final SimpleDateFormat BAN_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z", Locale.ROOT);
      private final MinecraftServer server;
 -    private final List<ServerPlayer> players = Lists.newArrayList();

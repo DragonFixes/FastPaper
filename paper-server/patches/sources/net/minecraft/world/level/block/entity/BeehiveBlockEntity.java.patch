@@ -204,8 +204,8 @@
      }
 @@ -331,15 +_,18 @@
  
-     private static class BeeData {
-         private final BeehiveBlockEntity.Occupant occupant;
+     public static class BeeData {
+         public final BeehiveBlockEntity.Occupant occupant;
 +        private int exitTickCounter; // Paper - Fix bees aging inside hives; separate counter for checking if bee should exit to reduce exit attempts
          private int ticksInHive;
  

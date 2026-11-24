@@ -1,0 +1,292 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 20:20:34 -0500
+Subject: [PATCH] Leaf: Gale and Leaf configuration and commands
+
+Squashed from Leaf ver/26.3 (Winds-Studio/Leaf@60c5729), minecraft patches:
+
+- Gale configuration (Martijn Muijsers)
+- Leaf config (Dreeam)
+- Leaf Commands (Dreeam)
+- Configurable vanilla profiler (Dreeam)
+
+diff --git a/net/minecraft/server/Main.java b/net/minecraft/server/Main.java
+index 7b1a8fbbb1d07f4b71f43c288da7d28edfbbe020..6f19bc73ba20e24fcb472697514fb51aaa85d95a 100644
+--- a/net/minecraft/server/Main.java
++++ b/net/minecraft/server/Main.java
+@@ -102,6 +102,8 @@ public class Main {
+                 writePidFile(pidFilePath);
+             }
+ 
++            org.dreeam.leaf.config.LeafConfig.loadConfig(); // Leaf - Leaf config
++
+             // Paper start - Perf: Run CrashReport preload asynchronously
+             // The actual result is discarded/irrelevant, but hardware and software info is memoized
+             Thread.ofPlatform().daemon().name("CrashReport preload thread").start(CrashReport::preload);
+@@ -127,6 +129,7 @@ public class Main {
+             Thread.ofPlatform().daemon().name("DataFixers init thread").start(DataFixers::getDataFixer);
+             // Paper end - Perf: Init DataConverter asynchronously
+             Util.startTimerHackThread();
++            org.dreeam.leaf.config.ConfigModule.loadAfterBootstrap(); // Leaf - Leaf config - post load
+             Path settingsFile = Paths.get("server.properties");
+             DedicatedServerSettings settings = new DedicatedServerSettings(options); // CraftBukkit - CLI argument support
+             settings.forceSave();
+diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
+index e4e26ab878aa212ae1dbec7c241f2eeac9a4f1ad..5a4ed1495507738755ca47e89cfe375a1d793ce0 100644
+--- a/net/minecraft/server/MinecraftServer.java
++++ b/net/minecraft/server/MinecraftServer.java
+@@ -329,6 +329,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+     public volatile boolean abnormalExit; // Paper - Improved watchdog support
+     public volatile Thread shutdownThread; // Paper - Improved watchdog support
+     public final io.papermc.paper.configuration.PaperConfigurations paperConfigurations; // Paper - add paper configuration files
++    public final org.galemc.gale.configuration.GaleConfigurations galeConfigurations; // Gale - Gale configuration
+     public boolean isIteratingOverLevels = false; // Paper - Throw exception on world create while being ticked
+     private final Set<String> pluginsBlockingSleep = new java.util.HashSet<>(); // Paper - API to allow/disallow tick sleeping
+     public static final long SERVER_INIT = System.nanoTime(); // Paper - Lag compensation
+@@ -573,6 +574,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         Runtime.getRuntime().addShutdownHook(new org.bukkit.craftbukkit.util.ServerShutdownThread(this));
+         // CraftBukkit end
+         this.paperConfigurations = services.paper().configurations(); // Paper - add paper configuration files
++        this.galeConfigurations = services.galeConfigurations(); // Gale - Gale configuration
+     }
+ 
+     protected abstract boolean initServer() throws IOException;
+@@ -1285,6 +1287,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+             org.spigotmc.WatchdogThread.tick();
+             // Paper end
+             org.spigotmc.WatchdogThread.hasStarted = true; // Paper
++            org.dreeam.leaf.config.LeafConfig.regSparkExtraConfig(); // Leaf - Leaf config
+             // Paper start - Add onboarding message for initial server start
+             if (io.papermc.paper.configuration.GlobalConfiguration.isFirstStart) {
+                 LOGGER.info("*************************************************************************************");
+@@ -1354,7 +1357,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+ 
+                 // Paper - improve tick loop - done above
+ 
+-                try (Profiler.Scope ignored = Profiler.use(this.createProfiler())) {
++                try (Profiler.Scope ignored = org.dreeam.leaf.util.LeafConstants.DISABLE_VANILLA_PROFILER ? null : Profiler.use(this.createProfiler())) { // Leaf - Configurable vanilla profiler
+                     this.processPacketsAndTick(sprinting);
+                     ProfilerFiller profiler = Profiler.get();
+                     profiler.push("nextTickWait");
+diff --git a/net/minecraft/server/ReloadableServerResources.java b/net/minecraft/server/ReloadableServerResources.java
+index 630504ad409e68028c5f8a9caf3b4528752cbb48..430713b6fc22b6221b467b1fa192a212452127bb 100644
+--- a/net/minecraft/server/ReloadableServerResources.java
++++ b/net/minecraft/server/ReloadableServerResources.java
+@@ -112,7 +112,7 @@ public class ReloadableServerResources {
+                                     backgroundExecutor,
+                                     mainThreadExecutor,
+                                     DATA_RELOAD_INITIAL_TASK,
+-                                    LOGGER.isDebugEnabled()
++                                    !org.dreeam.leaf.util.LeafConstants.DISABLE_VANILLA_PROFILER // Leaf - Configurable vanilla profiler
+                                 )
+                                 .done()
+                                 .thenApply(ignore -> result);
+diff --git a/net/minecraft/server/Services.java b/net/minecraft/server/Services.java
+index 077b2a6442f12d92d56f4356a263abee4831c37d..bfcba7da535f48461a83a81ba5380386f7a19f74 100644
+--- a/net/minecraft/server/Services.java
++++ b/net/minecraft/server/Services.java
+@@ -19,6 +19,7 @@ public record Services(
+     UserNameToIdResolver nameToIdCache,
+     ProfileResolver profileResolver
+     , @Nullable PaperServices paper // Paper
++    , org.galemc.gale.configuration.@Nullable GaleConfigurations galeConfigurations // Gale - Gale configuration
+ ) {
+     public static final String USERID_CACHE_FILE = "usercache.json";
+ 
+@@ -29,14 +30,25 @@ public record Services(
+     ) {}
+ 
+     public Services(SessionService sessionService, ServicesKeySet servicesKeySet, GameProfileRepository profileRepository, UserNameToIdResolver nameToIdCache, ProfileResolver profileResolver) {
+-        this(sessionService, servicesKeySet, profileRepository, nameToIdCache, profileResolver, null);
++        // Gale start - Gale configuration
++        this(sessionService, servicesKeySet, profileRepository, nameToIdCache, profileResolver, null, null);
+     }
++    public Services(SessionService sessionService, ServicesKeySet servicesKeySet, GameProfileRepository profileRepository, UserNameToIdResolver nameToIdCache, ProfileResolver profileResolver, @Nullable PaperServices paper) throws Exception {
++        this(sessionService, servicesKeySet, profileRepository, nameToIdCache, profileResolver, paper, org.galemc.gale.configuration.GaleConfigurations.setup(paper.configurations().getGlobalConfigFile()));
++    }
++    // Gale end - Gale configuration
+ 
+     @Override
+     public PaperServices paper() {
+         return java.util.Objects.requireNonNull(this.paper);
+     }
+     // Paper end - add paper configuration files
++    // Gale start - Gale configuration
++    @Override
++    public org.galemc.gale.configuration.GaleConfigurations galeConfigurations() {
++        return java.util.Objects.requireNonNull(this.galeConfigurations);
++    }
++    // Gale end - Gale configuration
+ 
+ 
+     public static Services create(final MinecraftServicesDiscoveryService serviceAccess, final File nameCacheDir, final File userCacheFile, final joptsimple.OptionSet options) throws Exception { // Paper - add options to load paper config files; add userCacheFile parameter
+@@ -52,7 +64,10 @@ public record Services(
+             new io.papermc.paper.profile.PaperFilledProfileCache()
+         );
+         ProfileResolver profileResolver = new ProfileResolver.Cached(sessionService, profileCache, paperServices.filledProfileCache());
+-        return new Services(sessionService, serviceAccess.getServicesKeySet(), profileRepository, profileCache, profileResolver, paperServices);
++        // Gale start - Gale configuration
++        org.galemc.gale.configuration.GaleConfigurations galeConfigurations = org.galemc.gale.configuration.GaleConfigurations.setup(configDirPath);
++        return new Services(sessionService, serviceAccess.getServicesKeySet(), profileRepository, profileCache, profileResolver, paperServices, galeConfigurations);
++        // Gale end - Gale configuration
+         // Paper end - load paper config files from cli options
+     }
+ 
+diff --git a/net/minecraft/server/commands/DebugCommand.java b/net/minecraft/server/commands/DebugCommand.java
+index 812659bc14a356bde510d245557f94746bc576cc..f665f112ab278c786403d98fc206d6752fd4de1f 100644
+--- a/net/minecraft/server/commands/DebugCommand.java
++++ b/net/minecraft/server/commands/DebugCommand.java
+@@ -71,6 +71,7 @@ public class DebugCommand {
+     }
+ 
+     private static int start(final CommandSourceStack source) throws CommandSyntaxException {
++        if (showRemovalWarning(source, "debug start")) return 0; // Leaf - Configurable vanilla profiler
+         MinecraftServer server = source.getServer();
+         if (server.isTimeProfilerRunning()) {
+             throw ERROR_ALREADY_RUNNING.create();
+@@ -82,6 +83,7 @@ public class DebugCommand {
+     }
+ 
+     private static int stop(final CommandSourceStack source) throws CommandSyntaxException {
++        if (showRemovalWarning(source, "debug stop")) return 0; // Leaf - Configurable vanilla profiler
+         MinecraftServer server = source.getServer();
+         if (!server.isTimeProfilerRunning()) {
+             throw ERROR_NOT_RUNNING.create();
+@@ -99,6 +101,21 @@ public class DebugCommand {
+         return (int)tps;
+     }
+ 
++    // Leaf start - Configurable vanilla profiler
++    public static boolean showRemovalWarning(final CommandSourceStack source, final String command) {
++        if (org.dreeam.leaf.util.LeafConstants.DISABLE_VANILLA_PROFILER) {
++            net.kyori.adventure.text.minimessage.MiniMessage mm = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage();
++
++            source.getSender().sendMessage(mm.deserialize("<gold>/" + command + " command is unavailable, since Minecraft's vanilla profiler has been disabled."));
++            source.getSender().sendMessage(mm.deserialize("<gold>Please use <click:suggest_command:'/spark'><grey>/spark</grey></click> instead, or check Leaf docs for more information:"));
++            source.getSender().sendMessage(mm.deserialize("<gold><click:open_url:'" + org.dreeam.leaf.util.LeafConstants.DISABLE_VANILLA_PROFILER_DOCS_URL + "'>" + org.dreeam.leaf.util.LeafConstants.DISABLE_VANILLA_PROFILER_DOCS_URL + "</click>"));
++
++            return true;
++        }
++        return false;
++    }
++    // Leaf end - Configurable vanilla profiler
++
+     private static class TraceCustomExecutor
+         extends CustomCommandExecutor.WithErrorHandling<CommandSourceStack>
+         implements CustomCommandExecutor.CommandAdapter<CommandSourceStack> {
+diff --git a/net/minecraft/server/commands/PerfCommand.java b/net/minecraft/server/commands/PerfCommand.java
+index f881d6c20487569c0408fbb33e5d9d09363d7cbc..767c812271672271123446265b6ee75f2725ae88 100644
+--- a/net/minecraft/server/commands/PerfCommand.java
++++ b/net/minecraft/server/commands/PerfCommand.java
+@@ -42,6 +42,7 @@ public class PerfCommand {
+     }
+ 
+     private static int startProfilingDedicatedServer(final CommandSourceStack source) throws CommandSyntaxException {
++        if (net.minecraft.server.commands.DebugCommand.showRemovalWarning(source, "perf start")) return 0; // Leaf - Configurable vanilla profiler
+         MinecraftServer server = source.getServer();
+         if (server.isRecordingMetrics()) {
+             throw ERROR_ALREADY_RUNNING.create();
+@@ -55,6 +56,7 @@ public class PerfCommand {
+     }
+ 
+     private static int stopProfilingDedicatedServer(final CommandSourceStack source) throws CommandSyntaxException {
++        if (net.minecraft.server.commands.DebugCommand.showRemovalWarning(source, "perf stop")) return 0; // Leaf - Configurable vanilla profiler
+         MinecraftServer server = source.getServer();
+         if (!server.isRecordingMetrics()) {
+             throw ERROR_NOT_RUNNING.create();
+diff --git a/net/minecraft/server/dedicated/DedicatedServer.java b/net/minecraft/server/dedicated/DedicatedServer.java
+index 582d8d62026876e25cfbe723ead7309da1bb25ab..5720bf7133f7a7fe81993e70f178fc0675bcde40 100644
+--- a/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -239,6 +239,10 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         this.paperConfigurations.initializeGlobalConfiguration(this.registryAccess());
+         this.paperConfigurations.initializeWorldDefaultsConfiguration(this.registryAccess());
+         // Paper end - initialize global and world-defaults configuration
++        // Gale start - Gale configuration
++        galeConfigurations.initializeGlobalConfiguration(this.registryAccess());
++        galeConfigurations.initializeWorldDefaultsConfiguration(this.registryAccess());
++        // Gale end - Gale configuration
+         this.server.spark.enableEarlyIfRequested(); // Paper - spark
+         // Paper start - fix converting txt to json file; convert old users earlier after PlayerList creation but before file load/save
+         if (this.convertOldUsers()) {
+@@ -260,6 +264,7 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         }
+         org.purpurmc.purpur.PurpurConfig.registerCommands();
+         // Purpur end - Purpur config files
++        org.dreeam.leaf.command.LeafCommands.registerCommands(this); // Leaf - Leaf commands
+         com.destroystokyo.paper.VersionHistoryManager.INSTANCE.getClass(); // Paper - load version history now
+ 
+         // this.worldData.setGameType(properties.gameMode.get()); // CraftBukkit - moved to world loading
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index beb6d333177661de1756692a38c47f15b74aac9c..d33c32118a661a29786125f34f8c396e859192f1 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -637,7 +637,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+         savedDataStorage.set(io.papermc.paper.world.saveddata.PaperWorldPDC.TYPE, loadedWorldData.pdc() == null ? io.papermc.paper.world.saveddata.PaperWorldPDC.TYPE.constructor().get() : loadedWorldData.pdc());
+         final GameRules gameRules = new GameRules(server.getWorldData().enabledFeatures(), savedDataStorage.computeIfAbsent(net.minecraft.world.level.gamerules.GameRuleMap.TYPE));
+         this.gameRules = gameRules;
+-        super(levelData, dimension, server.registryAccess(), levelStem.type(), false, isDebug, biomeZoomSeed, server.getMaxChainedNeighborUpdates(), loadedWorldData.bukkitName(), gen, biomeProvider, env, spigotConfig -> server.paperConfigurations.createWorldConfig(io.papermc.paper.configuration.PaperConfigurations.createWorldContextMap(server.storageSource.getDimensionPath(dimension), dimension.identifier(), spigotConfig, server.registryAccess(), gameRules)), executor); // Paper - create paper world configs // Paper - Anti-Xray - Pass executor
++        super(levelData, dimension, server.registryAccess(), levelStem.type(), false, isDebug, biomeZoomSeed, server.getMaxChainedNeighborUpdates(), loadedWorldData.bukkitName(), gen, biomeProvider, env, spigotConfig -> server.paperConfigurations.createWorldConfig(io.papermc.paper.configuration.PaperConfigurations.createWorldContextMap(server.storageSource.getDimensionPath(dimension), dimension.identifier(), spigotConfig, server.registryAccess(), gameRules)), spigotConfig -> server.galeConfigurations.createWorldConfig(io.papermc.paper.configuration.PaperConfigurations.createWorldContextMap(server.storageSource.getDimensionPath(dimension), dimension.identifier(), spigotConfig, server.registryAccess(), gameRules)), executor); // Paper - create paper world configs // Paper - Anti-Xray - Pass executor // Gale - Gale configuration
+         this.weatherData = savedDataStorage.computeIfAbsent(WeatherData.TYPE);
+         this.weatherData.setLevel(this);
+         this.typeKey = typeKey;
+diff --git a/net/minecraft/server/packs/resources/ReloadableResourceManager.java b/net/minecraft/server/packs/resources/ReloadableResourceManager.java
+index 2bccd6a2ade7e5d2bda6f031202700f9811b8f01..222c7d3c88fba00eaead059425e2be2a7983d5e1 100644
+--- a/net/minecraft/server/packs/resources/ReloadableResourceManager.java
++++ b/net/minecraft/server/packs/resources/ReloadableResourceManager.java
+@@ -45,7 +45,7 @@ public class ReloadableResourceManager implements AutoCloseable, ResourceManager
+         LOGGER.info("Reloading ResourceManager: {}", LogUtils.defer(() -> resourcePacks.stream().map(PackResources::packId).collect(Collectors.joining(", "))));
+         this.resources.close();
+         this.resources = new MultiPackResourceManager(this.type, resourcePacks);
+-        return SimpleReloadInstance.create(this.resources, this.listeners, backgroundExecutor, mainThreadExecutor, initialTask, LOGGER.isDebugEnabled());
++        return SimpleReloadInstance.create(this.resources, this.listeners, backgroundExecutor, mainThreadExecutor, initialTask, !org.dreeam.leaf.util.LeafConstants.DISABLE_VANILLA_PROFILER); // Leaf - Configurable vanilla profiler
+     }
+ 
+     @Override
+diff --git a/net/minecraft/util/profiling/Profiler.java b/net/minecraft/util/profiling/Profiler.java
+index ae5974d304abd7d240453f0376c5fd79359a9585..a7ae88f744e1adafca1e13243dbee94536c9c961 100644
+--- a/net/minecraft/util/profiling/Profiler.java
++++ b/net/minecraft/util/profiling/Profiler.java
+@@ -49,6 +49,7 @@ public final class Profiler {
+     }
+ 
+     public static ProfilerFiller get() {
++        if (org.dreeam.leaf.util.LeafConstants.DISABLE_VANILLA_PROFILER) return InactiveProfiler.INSTANCE; // Leaf - Configurable vanilla profiler
+         return ACTIVE_COUNT.get() == 0 ? getDefaultFiller() : Objects.requireNonNullElseGet(ACTIVE.get(), Profiler::getDefaultFiller);
+     }
+ 
+diff --git a/net/minecraft/world/level/Level.java b/net/minecraft/world/level/Level.java
+index 0b4256c200a4a74ffbb438b702d3afdbd767f8fd..e6df431292793036c247ae5714b3ef44b60b5917 100644
+--- a/net/minecraft/world/level/Level.java
++++ b/net/minecraft/world/level/Level.java
+@@ -170,6 +170,13 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+     }
+     // Paper end - add paper world config
+ 
++    // Gale start - Gale configuration
++    private final org.galemc.gale.configuration.GaleWorldConfiguration galeConfig;
++    public org.galemc.gale.configuration.GaleWorldConfiguration galeConfig() {
++        return this.galeConfig;
++    }
++    // Gale end - Gale configuration
++
+     public final org.purpurmc.purpur.PurpurWorldConfig purpurConfig; // Purpur - Purpur config files
+     public static @Nullable BlockPos lastPhysicsProblem; // Spigot
+     public final Map<ServerExplosion.CacheKey, Float> explosionDensityCache = new java.util.HashMap<>(); // Paper - Optimize explosions
+@@ -899,6 +906,8 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+         org.bukkit.World.Environment environment, // Paper
+         java.util.function.Function<org.spigotmc.SpigotWorldConfig, // Spigot - create per world config
+         io.papermc.paper.configuration.WorldConfiguration> paperWorldConfigCreator, // Paper - create paper world config
++        java.util.function.Function<org.spigotmc.SpigotWorldConfig, // Gale - Gale configuration
++        org.galemc.gale.configuration.GaleWorldConfiguration> galeWorldConfigCreator, // Gale - Gale configuration
+         java.util.concurrent.Executor executor // Paper - Anti-Xray
+     ) {
+         // Paper start - getblock optimisations - cache world height/sections
+@@ -914,6 +923,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+         this.spigotConfig = new org.spigotmc.SpigotWorldConfig(bukkitName, worldKey); // Spigot
+         this.paperConfig = paperWorldConfigCreator.apply(this.spigotConfig); // Paper - create paper world config
+         this.purpurConfig = new org.purpurmc.purpur.PurpurWorldConfig(bukkitName, environment, worldKey); // Purpur - Purpur config files
++        this.galeConfig = galeWorldConfigCreator.apply(this.spigotConfig); // Gale - Gale configuration
+         this.playerBreedingCooldowns = this.getNewBreedingCooldownCache(); // Purpur - Add adjustable breeding cooldown to config
+         this.generator = generator;
+         this.world = new CraftWorld((ServerLevel) this, worldKey, biomeProvider, environment);

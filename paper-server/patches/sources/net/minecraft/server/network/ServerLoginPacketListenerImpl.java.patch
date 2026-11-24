@@ -12,7 +12,7 @@
 +
  public class ServerLoginPacketListenerImpl implements ServerLoginPacketListener, TickablePacketListener {
      private static final AtomicInteger UNIQUE_THREAD_ID = new AtomicInteger(0);
-     private static final Logger LOGGER = LogUtils.getLogger();
+     public static final Logger LOGGER = LogUtils.getLogger();
 +    private static final java.util.concurrent.ExecutorService authenticatorPool = java.util.concurrent.Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("User Authenticator #", 0).uncaughtExceptionHandler(new DefaultUncaughtExceptionHandler(LOGGER)).factory()); // Paper - Virtual authenticator threads
      private static final int MAX_TICKS_BEFORE_LOGIN = 600;
      private final byte[] challenge;

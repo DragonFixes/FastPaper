@@ -145,7 +145,7 @@ index 630918efb9b72a11545f7ab293d517a5b3acefd9..c7aca4fb8fbfea24d59559730c68365e
                  result.add(entity);
                  if (result.size() >= maxResults) {
 diff --git a/net/minecraft/world/entity/Entity.java b/net/minecraft/world/entity/Entity.java
-index bea975af0b8be42883bac92d0366cf93ebadc0fc..cfcc9945712e43ecd1834a2f04d878ba5520d779 100644
+index 0e5ac4fe7ae706e07ad101905049958dbdcdbdaf..40bc2cec8a5de5234f90e5d8fe08c63470fb2f44 100644
 --- a/net/minecraft/world/entity/Entity.java
 +++ b/net/minecraft/world/entity/Entity.java
 @@ -338,7 +338,7 @@ public abstract class Entity
@@ -156,4 +156,4 @@ index bea975af0b8be42883bac92d0366cf93ebadc0fc..cfcc9945712e43ecd1834a2f04d878ba
 +    private final Set<String> tags = new io.papermc.paper.swift.entity.SwiftTagSet(new it.unimi.dsi.fastutil.objects.ObjectOpenHashSet<>(), MAX_ENTITY_TAG_COUNT); // Paper - fully limit tag size - replace set impl // Swift - selector tag index: set reports changes
      private final double[] pistonDeltas = new double[]{0.0, 0.0, 0.0};
      private long pistonDeltasGameTime;
-     private EntityDimensions dimensions;
+     protected EntityDimensions dimensions;

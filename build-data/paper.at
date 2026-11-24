@@ -7,14 +7,17 @@ private-f net.minecraft.world.item.ItemStack components
 private-f net.minecraft.world.item.ItemStack item
 private-f net.minecraft.world.item.crafting.RecipeManager learnableRecipes
 private-f net.minecraft.world.level.block.entity.BeehiveBlockEntity stored
+protected net.minecraft.world.entity.Entity dimensions
 protected net.minecraft.world.entity.LivingEntity skipDropExperience
 protected net.minecraft.world.level.Level thread
 protected-f net.minecraft.server.MinecraftServer worldData
+protected-f net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase$Cache largeCollisionShape
 public net.minecraft.ChatFormatting code
 public net.minecraft.advancements.Advancement decorateName(Lnet/minecraft/advancements/DisplayInfo;)Lnet/minecraft/network/chat/Component;
 public net.minecraft.commands.CommandSourceStack source
 public net.minecraft.commands.arguments.DimensionArgument ERROR_INVALID_VALUE
 public net.minecraft.commands.arguments.blocks.BlockInput tag
+public net.minecraft.core.Direction VALUES
 public net.minecraft.core.MappedRegistry validateWrite(Lnet/minecraft/resources/ResourceKey;)V
 public net.minecraft.core.component.DataComponentPatch map
 public net.minecraft.core.component.Removed
@@ -24,12 +27,14 @@ public net.minecraft.network.Connection address
 public net.minecraft.network.Connection channel
 public net.minecraft.network.chat.contents.TranslatableContents PRIMITIVE_ARG_CODEC
 public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket <init>(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/BlockEntityType;Lnet/minecraft/nbt/CompoundTag;)V
+public net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket <init>(ILjava/util/List;)V
 public net.minecraft.network.syncher.SynchedEntityData getItem(Lnet/minecraft/network/syncher/EntityDataAccessor;)Lnet/minecraft/network/syncher/SynchedEntityData$DataItem;
 public net.minecraft.resources.RegistryOps <init>(Lcom/mojang/serialization/DynamicOps;Lnet/minecraft/resources/RegistryOps$RegistryInfoLookup;)V
 public net.minecraft.resources.RegistryOps lookupProvider
 public net.minecraft.resources.RegistryOps$HolderLookupAdapter
 public net.minecraft.server.Main forceUpgrade(Lnet/minecraft/world/level/storage/LevelStorageSource$LevelStorageAccess;Lcom/mojang/datafixers/DataFixer;ZLjava/util/function/BooleanSupplier;Lnet/minecraft/core/RegistryAccess;Z)V
 public net.minecraft.server.MinecraftServer LOGGER
+public net.minecraft.server.MinecraftServer playerDataStorage
 public net.minecraft.server.RegistryLayer STATIC_ACCESS
 public net.minecraft.server.Services USERID_CACHE_FILE
 public net.minecraft.server.dedicated.DedicatedServerProperties$WorldDimensionData
@@ -57,6 +62,8 @@ public net.minecraft.server.level.ChunkMap$TrackedEntity serverEntity
 public net.minecraft.server.level.DistanceManager simulationDistance
 public net.minecraft.server.level.DistanceManager ticketStorage
 public net.minecraft.server.level.ServerBossEvent broadcast(Ljava/util/function/Function;)V
+public net.minecraft.server.level.ServerChunkCache fullChunks
+public net.minecraft.server.level.ServerChunkCache mainThread
 public net.minecraft.server.level.ServerChunkCache mainThreadProcessor
 public net.minecraft.server.level.ServerChunkCache runDistanceManagerUpdates()Z
 public net.minecraft.server.level.ServerChunkCache spawnEnemies
@@ -85,12 +92,14 @@ public net.minecraft.server.network.ServerConfigurationPacketListenerImpl curren
 public net.minecraft.server.network.ServerConfigurationPacketListenerImpl finishCurrentTask(Lnet/minecraft/server/network/ConfigurationTask$Type;)V
 public net.minecraft.server.network.ServerGamePacketListenerImpl isChatMessageIllegal(Ljava/lang/String;)Z
 public net.minecraft.server.network.ServerGamePacketListenerImpl restartClientLoadTimerAfterRespawn()V
+public net.minecraft.server.network.ServerLoginPacketListenerImpl LOGGER
 public net.minecraft.server.network.ServerLoginPacketListenerImpl authenticatedProfile
 public net.minecraft.server.network.ServerLoginPacketListenerImpl connection
 public net.minecraft.server.network.ServerLoginPacketListenerImpl state
 public net.minecraft.server.network.ServerLoginPacketListenerImpl$State
 public net.minecraft.server.packs.repository.FolderRepositorySource$FolderPackDetector
 public net.minecraft.server.packs.repository.FolderRepositorySource$FolderPackDetector <init>(Lnet/minecraft/world/level/validation/DirectoryValidator;)V
+public net.minecraft.server.players.PlayerList SEND_PLAYER_INFO_INTERVAL
 public net.minecraft.server.players.PlayerList playerIo
 public net.minecraft.server.players.PlayerList updateEntireScoreboard(Lnet/minecraft/server/ServerScoreboard;Lnet/minecraft/server/level/ServerPlayer;)V
 public net.minecraft.server.players.PlayerList verifyChatTrusted(Lnet/minecraft/network/chat/PlayerChatMessage;)Z
@@ -98,6 +107,8 @@ public net.minecraft.stats.ServerRecipeBook known
 public net.minecraft.tags.TagEntry id
 public net.minecraft.tags.TagEntry required
 public net.minecraft.tags.TagEntry tag
+public net.minecraft.util.Mth SIN
+public net.minecraft.util.Util LOGGER
 public net.minecraft.util.Util onThreadException(Ljava/lang/Thread;Ljava/lang/Throwable;)V
 public net.minecraft.util.datafix.fixes.BlockStateData register(ILcom/mojang/serialization/Dynamic;[Lcom/mojang/serialization/Dynamic;)V
 public net.minecraft.util.datafix.fixes.ItemIdFix ITEM_NAMES
@@ -168,6 +179,7 @@ public net.minecraft.world.entity.Display$TextDisplay setText(Lnet/minecraft/net
 public net.minecraft.world.entity.Display$TextDisplay setTextOpacity(B)V
 public net.minecraft.world.entity.Entity DATA_TICKS_FROZEN
 public net.minecraft.world.entity.Entity FLAG_INVISIBLE
+public net.minecraft.world.entity.Entity blockPosition
 public net.minecraft.world.entity.Entity getAirDrag()F
 public net.minecraft.world.entity.Entity getDefaultGravity()D
 public net.minecraft.world.entity.Entity getEncodeId()Ljava/lang/String;
@@ -178,12 +190,15 @@ public net.minecraft.world.entity.Entity getSwimSound()Lnet/minecraft/sounds/Sou
 public net.minecraft.world.entity.Entity getSwimSplashSound()Lnet/minecraft/sounds/SoundEvent;
 public net.minecraft.world.entity.Entity isInRain()Z
 public net.minecraft.world.entity.Entity isInvulnerableToBase(Lnet/minecraft/world/damagesource/DamageSource;)Z
+public net.minecraft.world.entity.Entity markHurt()V
 public net.minecraft.world.entity.Entity onGround
 public net.minecraft.world.entity.Entity passengers
+public net.minecraft.world.entity.Entity position
 public net.minecraft.world.entity.Entity setLevel(Lnet/minecraft/world/level/Level;)V
 public net.minecraft.world.entity.Entity setRot(FF)V
 public net.minecraft.world.entity.Entity setSharedFlag(IZ)V
 public net.minecraft.world.entity.Entity unsetRemoved()V
+public net.minecraft.world.entity.Entity updateInWaterStateAndDoWaterCurrentPushing()V
 public net.minecraft.world.entity.ExperienceOrb count
 public net.minecraft.world.entity.ExperienceOrb setValue(I)V
 public net.minecraft.world.entity.Interaction attack
@@ -204,6 +219,7 @@ public net.minecraft.world.entity.LightningBolt life
 public net.minecraft.world.entity.LivingEntity DATA_ARROW_COUNT_ID
 public net.minecraft.world.entity.LivingEntity DATA_HEALTH_ID
 public net.minecraft.world.entity.LivingEntity LIVING_ENTITY_FLAG_SPIN_ATTACK
+public net.minecraft.world.entity.LivingEntity canGlide()Z
 public net.minecraft.world.entity.LivingEntity completeUsingItem()V
 public net.minecraft.world.entity.LivingEntity detectEquipmentUpdates()V
 public net.minecraft.world.entity.LivingEntity effectsDirty
@@ -216,6 +232,7 @@ public net.minecraft.world.entity.LivingEntity lastHurt
 public net.minecraft.world.entity.LivingEntity lastHurtByMob
 public net.minecraft.world.entity.LivingEntity lastHurtByPlayer
 public net.minecraft.world.entity.LivingEntity lastHurtByPlayerMemoryTime
+public net.minecraft.world.entity.LivingEntity noActionTime
 public net.minecraft.world.entity.LivingEntity playSecondaryHurtSound(Lnet/minecraft/world/damagesource/DamageSource;)V
 public net.minecraft.world.entity.LivingEntity setLivingEntityFlag(IZ)V
 public net.minecraft.world.entity.LivingEntity useItemRemaining
@@ -227,10 +244,13 @@ public net.minecraft.world.entity.Mob persistenceRequired
 public net.minecraft.world.entity.OminousItemSpawner setItem(Lnet/minecraft/world/item/ItemStack;)V
 public net.minecraft.world.entity.OminousItemSpawner spawnItemAfterTicks
 public net.minecraft.world.entity.ai.attributes.Attribute sentiment
+public net.minecraft.world.entity.ai.attributes.AttributeMap attributes
 public net.minecraft.world.entity.ai.attributes.AttributeSupplier getAttributeInstance(Lnet/minecraft/core/Holder;)Lnet/minecraft/world/entity/ai/attributes/AttributeInstance;
 public net.minecraft.world.entity.ai.gossip.GossipContainer gossips
 public net.minecraft.world.entity.ai.gossip.GossipContainer$EntityGossips
 public net.minecraft.world.entity.ai.gossip.GossipContainer$EntityGossips <init>()V
+public net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities lineOfSightTest
+public net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities nearbyEntities
 public net.minecraft.world.entity.ai.navigation.PathNavigation pathFinder
 public net.minecraft.world.entity.ambient.Bat targetPosition
 public net.minecraft.world.entity.animal.Animal loveCause
@@ -312,6 +332,7 @@ public net.minecraft.world.entity.animal.wolf.Wolf setVariant(Lnet/minecraft/cor
 public net.minecraft.world.entity.boss.wither.WitherBoss bossEvent
 public net.minecraft.world.entity.decoration.ArmorStand disabledSlots
 public net.minecraft.world.entity.decoration.ArmorStand isDisabled(Lnet/minecraft/world/entity/EquipmentSlot;)Z
+public net.minecraft.world.entity.decoration.ArmorStand noTickEquipmentDirty
 public net.minecraft.world.entity.decoration.ArmorStand setMarker(Z)V
 public net.minecraft.world.entity.decoration.ArmorStand setSmall(Z)V
 public net.minecraft.world.entity.decoration.HangingEntity setDirection(Lnet/minecraft/core/Direction;)V
@@ -356,6 +377,7 @@ public net.minecraft.world.entity.monster.Ravager attackTick
 public net.minecraft.world.entity.monster.Ravager roarTick
 public net.minecraft.world.entity.monster.Ravager stunnedTick
 public net.minecraft.world.entity.monster.Shulker DATA_COLOR_ID
+public net.minecraft.world.entity.monster.Shulker MAX_SCALE
 public net.minecraft.world.entity.monster.Shulker getRawPeekAmount()I
 public net.minecraft.world.entity.monster.Shulker setAttachFace(Lnet/minecraft/core/Direction;)V
 public net.minecraft.world.entity.monster.Shulker setRawPeekAmount(I)V
@@ -397,6 +419,7 @@ public net.minecraft.world.entity.npc.villager.Villager updateSpecialPrices(Lnet
 public net.minecraft.world.entity.npc.wanderingtrader.WanderingTrader getWanderTarget()Lnet/minecraft/core/BlockPos;
 public net.minecraft.world.entity.player.Inventory equipment
 public net.minecraft.world.entity.player.Player canCriticalAttack(Lnet/minecraft/world/entity/Entity;)Z
+public net.minecraft.world.entity.player.Player canGlide()Z
 public net.minecraft.world.entity.player.Player closeContainer()V
 public net.minecraft.world.entity.player.Player enchantmentSeed
 public net.minecraft.world.entity.player.Player hurtDir
@@ -484,6 +507,7 @@ public net.minecraft.world.inventory.LecternMenu DATA_COUNT
 public net.minecraft.world.inventory.MerchantContainer selectionHint
 public net.minecraft.world.item.AdventureModePredicate predicates
 public net.minecraft.world.item.CrossbowItem FIREWORK_POWER
+public net.minecraft.world.item.CrossbowItem getShotPitch(Lnet/minecraft/util/RandomSource;I)F
 public net.minecraft.world.item.DebugStickItem handleInteraction(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/LevelAccessor;Lnet/minecraft/core/BlockPos;ZLnet/minecraft/world/item/ItemStack;)Z
 public net.minecraft.world.item.ItemStackLinkedSet TYPE_AND_TAG
 public net.minecraft.world.item.JukeboxSongPlayer song
@@ -532,9 +556,13 @@ public net.minecraft.world.level.block.ComposterBlock$InputContainer
 public net.minecraft.world.level.block.ComposterBlock$OutputContainer
 public net.minecraft.world.level.block.DispenserBlock dispenseFrom(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;)V
 public net.minecraft.world.level.block.FireBlock igniteOdds
+public net.minecraft.world.level.block.FrogspawnBlock MAX_TADPOLES_SPAWN
+public net.minecraft.world.level.block.FrogspawnBlock MIN_TADPOLES_SPAWN
+public net.minecraft.world.level.block.PoweredRailBlock findPoweredRailSignal(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZI)Z
 public net.minecraft.world.level.block.RedstoneWireBlock canSurvive(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)Z
 public net.minecraft.world.level.block.RedstoneWireBlock shouldSignal
 public net.minecraft.world.level.block.SelectableSlotContainer getSection(FI)I
+public net.minecraft.world.level.block.ShulkerBoxBlock canOpen(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/ShulkerBoxBlockEntity;)Z
 public net.minecraft.world.level.block.TurtleEggBlock decreaseEggs(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)V
 public net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity cookingTimer
 public net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity cookingTotalTime
@@ -551,6 +579,8 @@ public net.minecraft.world.level.block.entity.BeaconBlockEntity lockKey
 public net.minecraft.world.level.block.entity.BeaconBlockEntity primaryPower
 public net.minecraft.world.level.block.entity.BeaconBlockEntity secondaryPower
 public net.minecraft.world.level.block.entity.BeehiveBlockEntity savedFlowerPos
+public net.minecraft.world.level.block.entity.BeehiveBlockEntity$BeeData
+public net.minecraft.world.level.block.entity.BeehiveBlockEntity$BeeData occupant
 public net.minecraft.world.level.block.entity.BellBlockEntity resonating
 public net.minecraft.world.level.block.entity.BellBlockEntity resonationTicks
 public net.minecraft.world.level.block.entity.BlockEntity saveId(Lnet/minecraft/world/level/storage/ValueOutput;)V
@@ -579,12 +609,14 @@ public net.minecraft.world.level.block.entity.CreakingHeartBlockEntity spawnProt
 public net.minecraft.world.level.block.entity.CreakingHeartBlockEntity spreadResin(Lnet/minecraft/server/level/ServerLevel;)Ljava/util/Optional;
 public net.minecraft.world.level.block.entity.DecoratedPotBlockEntity decorations
 public net.minecraft.world.level.block.entity.EnderChestBlockEntity openersCounter
+public net.minecraft.world.level.block.entity.FuelValues values
 public net.minecraft.world.level.block.entity.HopperBlockEntity cooldownTime
 public net.minecraft.world.level.block.entity.HopperBlockEntity setCooldown(I)V
 public net.minecraft.world.level.block.entity.LecternBlockEntity bookAccess
 public net.minecraft.world.level.block.entity.LecternBlockEntity setPage(I)V
 public net.minecraft.world.level.block.entity.SculkCatalystBlockEntity$CatalystListener bloom(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/util/RandomSource;)V
 public net.minecraft.world.level.block.entity.SculkShriekerBlockEntity warningLevel
+public net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity openCount
 public net.minecraft.world.level.block.entity.SignBlockEntity allowOpFeatures
 public net.minecraft.world.level.block.entity.SkullBlockEntity customName
 public net.minecraft.world.level.block.entity.SkullBlockEntity noteBlockSound
@@ -614,9 +646,15 @@ public net.minecraft.world.level.block.state.properties.IntegerProperty min
 public net.minecraft.world.level.chunk.ChunkAccess blockEntities
 public net.minecraft.world.level.chunk.ChunkAccess heightmaps
 public net.minecraft.world.level.chunk.ChunkGenerator generationSettingsGetter
+public net.minecraft.world.level.chunk.PaletteResize
 public net.minecraft.world.level.chunk.status.ChunkStatusTasks postLoadProtoChunk(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/level/storage/ValueInput$ValueInputList;)V
 public net.minecraft.world.level.chunk.storage.EntityStorage entityDeserializerQueue
 public net.minecraft.world.level.chunk.storage.EntityStorage level
+public net.minecraft.world.level.chunk.storage.RegionFile getOversizedData(II)Lnet/minecraft/nbt/CompoundTag;
+public net.minecraft.world.level.chunk.storage.RegionFile isOversized(II)Z
+public net.minecraft.world.level.chunk.storage.RegionFile recalculateHeader()Z
+public net.minecraft.world.level.chunk.storage.RegionFile setOversized(IIZ)V
+public net.minecraft.world.level.chunk.storage.RegionFile write(Lnet/minecraft/world/level/ChunkPos;Ljava/nio/ByteBuffer;)V
 public net.minecraft.world.level.dimension.end.EnderDragonFight GATEWAY_COUNT
 public net.minecraft.world.level.dimension.end.EnderDragonFight dragonEvent
 public net.minecraft.world.level.dimension.end.EnderDragonFight exitPortalLocation
@@ -634,6 +672,7 @@ public net.minecraft.world.level.entity.PersistentEntitySectionManager ensureChu
 public net.minecraft.world.level.entity.PersistentEntitySectionManager permanentStorage
 public net.minecraft.world.level.gamerules.GameRules rules
 public net.minecraft.world.level.levelgen.material.MaterialRuleContext context
+public net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece LOGGER
 public net.minecraft.world.level.levelgen.structure.StructurePiece SHAPE_CHECK_BLOCKS
 public net.minecraft.world.level.levelgen.structure.placement.AbstractSpreadingStructurePlacement exclusionZone
 public net.minecraft.world.level.levelgen.structure.placement.AbstractSpreadingStructurePlacement frequency
@@ -647,8 +686,11 @@ public net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 public net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager tryLoad(Lnet/minecraft/resources/Identifier;)Ljava/util/Optional;
 public net.minecraft.world.level.levelgen.structure.templatesystem.loader.TemplateSource readStructure(Ljava/io/InputStream;)Lnet/minecraft/nbt/CompoundTag;
 public net.minecraft.world.level.levelgen.structure.templatesystem.loader.TemplateSource readStructure(Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate;
+public net.minecraft.world.level.material.FlowingFluid canHoldAnyFluid(Lnet/minecraft/world/level/block/state/BlockState;)Z
 public net.minecraft.world.level.pathfinder.Path nodes
 public net.minecraft.world.level.pathfinder.PathFinder nodeEvaluator
+public net.minecraft.world.level.pathfinder.SwimNodeEvaluator allowBreaching
+public net.minecraft.world.level.portal.PortalShape FRAME
 public net.minecraft.world.level.saveddata.maps.MapItemSavedData carriedBy
 public net.minecraft.world.level.saveddata.maps.MapItemSavedData carriedByPlayers
 public net.minecraft.world.level.saveddata.maps.MapItemSavedData decorations
@@ -662,7 +704,9 @@ public-f net.minecraft.server.MinecraftServer storageSource
 public-f net.minecraft.server.ServerAdvancementManager advancements
 public-f net.minecraft.server.dedicated.DedicatedServer serverLinks
 public-f net.minecraft.server.dedicated.DedicatedServer settings
+public-f net.minecraft.server.level.ServerPlayer gameMode
 public-f net.minecraft.world.entity.Entity doTeamsAllowDamage(Lnet/minecraft/world/entity/Entity;)Z
+public-f net.minecraft.world.entity.EntityType dimensions
 public-f net.minecraft.world.entity.LivingEntity combatTracker
 public-f net.minecraft.world.entity.Mob targetSelector
 public-f net.minecraft.world.entity.ai.attributes.RangedAttribute maxValue
@@ -682,6 +726,7 @@ public-f net.minecraft.world.item.trading.MerchantOffer rewardExp
 public-f net.minecraft.world.item.trading.MerchantOffer xp
 public-f net.minecraft.world.level.block.ChestBlock MENU_PROVIDER_COMBINER
 public-f net.minecraft.world.level.block.entity.BannerBlockEntity baseColor
+public-f net.minecraft.world.level.block.state.BlockBehaviour explosionResistance
 public-f net.minecraft.world.level.saveddata.maps.MapItemSavedData centerX
 public-f net.minecraft.world.level.saveddata.maps.MapItemSavedData centerZ
 public-f net.minecraft.world.level.saveddata.maps.MapItemSavedData dimension
@@ -689,48 +734,3 @@ public-f net.minecraft.world.level.saveddata.maps.MapItemSavedData locked
 public-f net.minecraft.world.level.saveddata.maps.MapItemSavedData scale
 public-f net.minecraft.world.level.saveddata.maps.MapItemSavedData trackingPosition
 public-f net.minecraft.world.level.saveddata.maps.MapItemSavedData unlimitedTracking
-protected net.minecraft.world.entity.Entity dimensions
-protected-f net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase$Cache largeCollisionShape
-public net.minecraft.core.Direction VALUES
-public net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket <init>(ILjava/util/List;)V
-public net.minecraft.server.MinecraftServer playerDataStorage
-public net.minecraft.server.level.ServerChunkCache fullChunks
-public net.minecraft.server.level.ServerChunkCache mainThread
-public net.minecraft.server.network.ServerLoginPacketListenerImpl LOGGER
-public net.minecraft.server.players.PlayerList SEND_PLAYER_INFO_INTERVAL
-public net.minecraft.util.Mth SIN
-public net.minecraft.util.Util LOGGER
-public net.minecraft.world.entity.Entity blockPosition
-public net.minecraft.world.entity.Entity markHurt()V
-public net.minecraft.world.entity.Entity position
-public net.minecraft.world.entity.Entity updateInWaterStateAndDoWaterCurrentPushing()V
-public net.minecraft.world.entity.LivingEntity canGlide()Z
-public net.minecraft.world.entity.LivingEntity noActionTime
-public net.minecraft.world.entity.ai.attributes.AttributeMap attributes
-public net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities lineOfSightTest
-public net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities nearbyEntities
-public net.minecraft.world.entity.decoration.ArmorStand noTickEquipmentDirty
-public net.minecraft.world.entity.monster.Shulker MAX_SCALE
-public net.minecraft.world.entity.player.Player canGlide()Z
-public net.minecraft.world.item.CrossbowItem getShotPitch(Lnet/minecraft/util/RandomSource;I)F
-public net.minecraft.world.level.block.FrogspawnBlock MAX_TADPOLES_SPAWN
-public net.minecraft.world.level.block.FrogspawnBlock MIN_TADPOLES_SPAWN
-public net.minecraft.world.level.block.PoweredRailBlock findPoweredRailSignal(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZI)Z
-public net.minecraft.world.level.block.ShulkerBoxBlock canOpen(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/ShulkerBoxBlockEntity;)Z
-public net.minecraft.world.level.block.entity.BeehiveBlockEntity$BeeData
-public net.minecraft.world.level.block.entity.BeehiveBlockEntity$BeeData occupant
-public net.minecraft.world.level.block.entity.FuelValues values
-public net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity openCount
-public net.minecraft.world.level.chunk.PaletteResize
-public net.minecraft.world.level.chunk.storage.RegionFile getOversizedData(II)Lnet/minecraft/nbt/CompoundTag;
-public net.minecraft.world.level.chunk.storage.RegionFile isOversized(II)Z
-public net.minecraft.world.level.chunk.storage.RegionFile recalculateHeader()Z
-public net.minecraft.world.level.chunk.storage.RegionFile setOversized(IIZ)V
-public net.minecraft.world.level.chunk.storage.RegionFile write(Lnet/minecraft/world/level/ChunkPos;Ljava/nio/ByteBuffer;)V
-public net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece LOGGER
-public net.minecraft.world.level.material.FlowingFluid canHoldAnyFluid(Lnet/minecraft/world/level/block/state/BlockState;)Z
-public net.minecraft.world.level.pathfinder.SwimNodeEvaluator allowBreaching
-public net.minecraft.world.level.portal.PortalShape FRAME
-public-f net.minecraft.server.level.ServerPlayer gameMode
-public-f net.minecraft.world.entity.EntityType dimensions
-public-f net.minecraft.world.level.block.state.BlockBehaviour explosionResistance

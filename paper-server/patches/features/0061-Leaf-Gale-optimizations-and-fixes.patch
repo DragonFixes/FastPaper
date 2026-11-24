@@ -1,0 +1,2923 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 20:20:34 -0500
+Subject: [PATCH] Leaf: Gale optimizations and fixes
+
+Squashed from Leaf ver/26.3 (Winds-Studio/Leaf@60c5729), minecraft patches:
+
+- Faster floating-point positive modulo (Martijn Muijsers)
+- Simpler ShapelessRecipe comparison for vanilla (Martijn Muijsers)
+- Reduce projectile chunk loading (Martijn Muijsers)
+- Predict Halloween (Martijn Muijsers)
+- Move random tick random (Martijn Muijsers)
+- Optimize random calls in chunk ticking (Martijn Muijsers)
+- Check targeting range before getting visibility (Martijn Muijsers)
+- Make EntityCollisionContext a live representation (Martijn Muijsers)
+- Remove lambda from ticking guard (Martijn Muijsers)
+- SIMD support (Martijn Muijsers)
+- Make book writing configurable (Martijn Muijsers)
+- Reduce in wall checks (Martijn Muijsers)
+- Make chat order verification configurable (Martijn Muijsers)
+- Make ender dragon respawn attempt after placing end crystals configurable (Martijn Muijsers)
+- Make saving fireworks configurable (Martijn Muijsers)
+- Reduce villager item re-pickup (Martijn Muijsers)
+- Variable entity wake-up duration (Martijn Muijsers)
+- Do not process chat/commands before player has joined (Martijn Muijsers)
+- Do not log invalid statistics (Martijn Muijsers)
+- Do not log empty message warnings (Martijn Muijsers)
+- Do not log ignored advancements (Martijn Muijsers)
+- Do not log setBlock in far chunks (Martijn Muijsers)
+- Do not log unrecognized recipes (Martijn Muijsers)
+- Do not log expired message warnings (Martijn Muijsers)
+- Do not log Not Secure marker (Martijn Muijsers)
+- Do not log disconnections with null id (Martijn Muijsers)
+- Do not log run as root warning (Martijn Muijsers)
+- Do not log offline mode warning (Martijn Muijsers)
+- Do not log invalid flatten text component parse (Dreeam)
+- Fix 'outdated server' showing in ping before server fully boots (Martijn Muijsers)
+- Fix MC-238526 (Martijn Muijsers)
+- Fix MC-121706 (Martijn Muijsers)
+- Make logging login locations configurable (Martijn Muijsers)
+- Reduce array allocations (Martijn Muijsers)
+- Optimize sun burn tick (Martijn Muijsers)
+- Reduce lambda and Optional allocation in EntityBasedExplosionDamageCalculator (Martijn Muijsers)
+- Replace throttle tracker map with optimized collection (Martijn Muijsers)
+- Cache ShapePairKey hash (Dreeam)
+- Replace division by multiplication in CubePointRange (Martijn Muijsers)
+- Replace parts by size in CubePointRange (Martijn Muijsers)
+- Check frozen ticks before landing block (Martijn Muijsers)
+- Update boss bar within tick (Martijn Muijsers)
+- Cache world generator sea level (Martijn Muijsers)
+- Skip secondary POI sensor if absent (Martijn Muijsers)
+- Skip entity move if movement is zero (Martijn Muijsers)
+- Store mob counts in an array (Martijn Muijsers)
+- Use linked map for entity trackers (Martijn Muijsers)
+- Optimize sheep offspring color (Martijn Muijsers)
+- Hide flames on entities with fire resistance (Martijn Muijsers)
+- Skip cloning advancement criteria (Martijn Muijsers)
+- Reduce block destruction packet allocations (Martijn Muijsers)
+- Spread out sending all player info (Martijn Muijsers)
+- Skip PlayerCommandSendEvent if there are no listeners (Martijn Muijsers)
+- Send multiple keep-alive packets (Martijn Muijsers)
+- Make slow login timeout configurable (Martijn Muijsers)
+- Don't load chunks to spawn phantoms (Martijn Muijsers)
+- Broadcast crit animations as the entity being critted (Martijn Muijsers)
+- Prevent entities random strolling into non-ticking chunks (Martijn Muijsers)
+- Global EULA file (Martijn Muijsers)
+- 5-second TPS average (Martijn Muijsers)
+- Measure last tick time (Martijn Muijsers)
+- Increase time statistics in intervals (Martijn Muijsers)
+- For collision check has physics before same vehicle (Martijn Muijsers)
+- Skip negligible planar movement multiplication (Martijn Muijsers)
+- Optimize matching item checks (Martijn Muijsers)
+- Pre-compute VarLong sizes (Martijn Muijsers)
+- Optimize VarInt#write and VarLong#write (Martijn Muijsers)
+- Reduce RandomSource instances (Martijn Muijsers)
+- Initialize line of sight cache with low capacity (Martijn Muijsers)
+- Reduce line of sight updates and cache lookups (Martijn Muijsers)
+
+diff --git a/ca/spottedleaf/dataconverter/minecraft/versions/V4290.java b/ca/spottedleaf/dataconverter/minecraft/versions/V4290.java
+index 710c31d6765cb83c08af350887ec71127255f2fd..af65c55101f11733b8df60d8169c1f690b869302 100644
+--- a/ca/spottedleaf/dataconverter/minecraft/versions/V4290.java
++++ b/ca/spottedleaf/dataconverter/minecraft/versions/V4290.java
+@@ -255,7 +255,7 @@ public final class V4290 {
+                         return ret;
+                     }
+                 } catch (final JsonParseException ex) {
+-                    LOGGER.error("Failed to convert json to nbt: " + unparsedJson, ex);
++                    if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.invalidLegacyTextComponent) LOGGER.error("Failed to convert json to nbt: " + unparsedJson, ex); // Leaf - Do not log invalid flatten text component parse
+                 }
+ 
+                 return null;
+diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/level/entity/ChunkEntitySlices.java b/ca/spottedleaf/moonrise/patches/chunk_system/level/entity/ChunkEntitySlices.java
+index 5675cf02d7bf95b32ec1f51a3d3c68a03a4f9c73..7c6632c6aed67ec6a5436e81ef8e4fac0082b297 100644
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/level/entity/ChunkEntitySlices.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/level/entity/ChunkEntitySlices.java
+@@ -448,7 +448,6 @@ public final class ChunkEntitySlices {
+ 
+     private static final class BasicEntityList<E extends Entity> implements SwiftBoxList { // Swift - packed boxes
+ 
+-        private static final Entity[] EMPTY = new Entity[0];
+         private static final int DEFAULT_CAPACITY = 4;
+ 
+         private E[] storage;
+@@ -540,7 +539,7 @@ public final class ChunkEntitySlices {
+         }
+ 
+         public BasicEntityList(final int cap) {
+-            this.storage = (E[])(cap <= 0 ? EMPTY : new Entity[cap]);
++            this.storage = (E[])(cap <= 0 ? me.titaniumtown.ArrayConstants.emptyEntityArray : new Entity[cap]);// Gale - JettPack - reduce array allocations
+         }
+ 
+         public boolean isEmpty() {
+@@ -552,7 +551,7 @@ public final class ChunkEntitySlices {
+         }
+ 
+         private void resize() {
+-            if (this.storage == EMPTY) {
++            if (this.storage == me.titaniumtown.ArrayConstants.emptyEntityArray) { // Gale - JettPack - reduce array allocations
+                 this.storage = (E[])new Entity[DEFAULT_CAPACITY];
+             } else {
+                 this.storage = Arrays.copyOf(this.storage, this.storage.length * 2);
+diff --git a/io/papermc/paper/entity/activation/ActivationRange.java b/io/papermc/paper/entity/activation/ActivationRange.java
+index db127a30400045d3fe5672464f2ff706efa49031..987bbafa8033f0b7bd80856d9187d1ea8a0d3103 100644
+--- a/io/papermc/paper/entity/activation/ActivationRange.java
++++ b/io/papermc/paper/entity/activation/ActivationRange.java
+@@ -60,27 +60,39 @@ public final class ActivationRange {
+         if (entity.activationType == ActivationType.VILLAGER) {
+             if (inactiveFor > config.wakeUpInactiveVillagersEvery && world.wakeupInactiveRemainingVillagers > 0) {
+                 world.wakeupInactiveRemainingVillagers--;
+-                return config.wakeUpInactiveVillagersFor;
++                return getWakeUpDurationWithVariance(entity, config.wakeUpInactiveVillagersFor); // Gale - variable entity wake-up duration
+             }
+         } else if (entity.activationType == ActivationType.ANIMAL) {
+             if (inactiveFor > config.wakeUpInactiveAnimalsEvery && world.wakeupInactiveRemainingAnimals > 0) {
+                 world.wakeupInactiveRemainingAnimals--;
+-                return config.wakeUpInactiveAnimalsFor;
++                return getWakeUpDurationWithVariance(entity, config.wakeUpInactiveAnimalsFor); // Gale - variable entity wake-up duration
+             }
+         } else if (entity.activationType == ActivationType.FLYING_MONSTER) {
+             if (inactiveFor > config.wakeUpInactiveFlyingEvery && world.wakeupInactiveRemainingFlying > 0) {
+                 world.wakeupInactiveRemainingFlying--;
+-                return config.wakeUpInactiveFlyingFor;
++                return getWakeUpDurationWithVariance(entity, config.wakeUpInactiveFlyingFor); // Gale - variable entity wake-up duration
+             }
+         } else if (entity.activationType == ActivationType.MONSTER || entity.activationType == ActivationType.RAIDER) {
+             if (inactiveFor > config.wakeUpInactiveMonstersEvery && world.wakeupInactiveRemainingMonsters > 0) {
+                 world.wakeupInactiveRemainingMonsters--;
+-                return config.wakeUpInactiveMonstersFor;
++                return getWakeUpDurationWithVariance(entity, config.wakeUpInactiveMonstersFor); // Gale - variable entity wake-up duration
+             }
+         }
+         return -1;
+     }
+ 
++    // Gale start - variable entity wake-up duration
++    private static int getWakeUpDurationWithVariance(Entity entity, int wakeUpDuration) {
++        final double deviation = entity.level().galeConfig().gameplayMechanics.entityWakeUpDurationRatioStandardDeviation;
++
++        if (deviation <= 0) {
++            return wakeUpDuration;
++        }
++
++        return (int) Math.min(Integer.MAX_VALUE, Math.max(1, Math.round(wakeUpDuration * java.util.concurrent.ThreadLocalRandom.current().nextGaussian(1, deviation))));
++    }
++    // Gale end - variable entity wake-up duration
++
+     static AABB maxBB = new AABB(0, 0, 0, 0, 0, 0);
+ 
+     /**
+diff --git a/net/minecraft/advancements/Advancement.java b/net/minecraft/advancements/Advancement.java
+index b8afa8f7e3a51c92deb4e2d105031ee9eb39e663..7729201c03be1063f7026b106911897e5084147b 100644
+--- a/net/minecraft/advancements/Advancement.java
++++ b/net/minecraft/advancements/Advancement.java
+@@ -72,7 +72,7 @@ public record Advancement(
+         final AdvancementRequirements requirements,
+         final boolean sendsTelemetryEvent
+     ) {
+-        this(parent, display, rewards, Map.copyOf(criteria), requirements, sendsTelemetryEvent, display.map(Advancement::decorateName));
++        this(parent, display, rewards, criteria, requirements, sendsTelemetryEvent, display.map(Advancement::decorateName)); // Gale - Mirai - skip cloning advancement criteria
+     }
+ 
+     private static DataResult<Advancement> validate(final Advancement advancement) {
+diff --git a/net/minecraft/commands/Commands.java b/net/minecraft/commands/Commands.java
+index cecf6bf4f7950d7cacb7c65f739315510c5b97b1..e60f47af1d24aecba4ef5a20838bd9597ba23b08 100644
+--- a/net/minecraft/commands/Commands.java
++++ b/net/minecraft/commands/Commands.java
+@@ -544,6 +544,7 @@ public class Commands {
+     private void runSync(ServerPlayer player, java.util.Collection<String> bukkit, RootCommandNode<CommandSourceStack> root) {
+         // Paper end - Perf: Async command map building
+         new com.destroystokyo.paper.event.brigadier.AsyncPlayerSendCommandsEvent<>(player.getBukkitEntity(), root, true).callEvent(); // Paper - Brigadier API
++        if (org.bukkit.event.player.PlayerCommandSendEvent.getHandlerList().getRegisteredListeners().length > 0) { // Gale - Purpur - skip PlayerCommandSendEvent if there are no listeners
+         org.bukkit.event.player.PlayerCommandSendEvent event = new org.bukkit.event.player.PlayerCommandSendEvent(player.getBukkitEntity(), new java.util.LinkedHashSet<>(bukkit));
+         event.getPlayer().getServer().getPluginManager().callEvent(event);
+ 
+@@ -554,6 +555,7 @@ public class Commands {
+             }
+         }
+         // CraftBukkit end
++        } // Gale - Purpur - skip PlayerCommandSendEvent if there are no listeners
+         player.connection.send(new ClientboundCommandsPacket(root, COMMAND_NODE_INSPECTOR));
+     }
+ 
+diff --git a/net/minecraft/nbt/ByteArrayTag.java b/net/minecraft/nbt/ByteArrayTag.java
+index 47fb1762fa95cce3e2024bba6485ff91990e26c8..ad1c21f1642e6bf4fb4bb5b4657ac4965f7eaab8 100644
+--- a/net/minecraft/nbt/ByteArrayTag.java
++++ b/net/minecraft/nbt/ByteArrayTag.java
+@@ -166,7 +166,7 @@ public final class ByteArrayTag implements CollectionTag {
+ 
+     @Override
+     public void clear() {
+-        this.data = new byte[0];
++        this.data = me.titaniumtown.ArrayConstants.emptyByteArray; // Gale - JettPack - reduce array allocations
+     }
+ 
+     @Override
+diff --git a/net/minecraft/nbt/IntArrayTag.java b/net/minecraft/nbt/IntArrayTag.java
+index ab00ff3a05c2f1430b7b7fb7d7b816cedc2b318d..45a90ea9348ecba985e78d0007527a39e6cdf680 100644
+--- a/net/minecraft/nbt/IntArrayTag.java
++++ b/net/minecraft/nbt/IntArrayTag.java
+@@ -173,7 +173,7 @@ public final class IntArrayTag implements CollectionTag {
+ 
+     @Override
+     public void clear() {
+-        this.data = new int[0];
++        this.data = me.titaniumtown.ArrayConstants.emptyIntArray; // Gale - JettPack - reduce array allocations
+     }
+ 
+     @Override
+diff --git a/net/minecraft/nbt/LongArrayTag.java b/net/minecraft/nbt/LongArrayTag.java
+index 202ce0d0465517e51207a33b86c24c030bedd64a..dae37d0ca76da5c17e2f784cf006dfd62eadaa84 100644
+--- a/net/minecraft/nbt/LongArrayTag.java
++++ b/net/minecraft/nbt/LongArrayTag.java
+@@ -173,7 +173,7 @@ public final class LongArrayTag implements CollectionTag {
+ 
+     @Override
+     public void clear() {
+-        this.data = new long[0];
++        this.data = me.titaniumtown.ArrayConstants.emptyLongArray; // Gale - JettPack - reduce array allocations
+     }
+ 
+     @Override
+diff --git a/net/minecraft/network/CipherBase.java b/net/minecraft/network/CipherBase.java
+index 5a1fcd0a552dfcebff351c408a0403a8017930c1..1cdb3a6292133719b2e6b824ed9f78857f7b595e 100644
+--- a/net/minecraft/network/CipherBase.java
++++ b/net/minecraft/network/CipherBase.java
+@@ -7,8 +7,8 @@ import javax.crypto.ShortBufferException;
+ 
+ public class CipherBase {
+     private final Cipher cipher;
+-    private byte[] heapIn = new byte[0];
+-    private byte[] heapOut = new byte[0];
++    private byte[] heapIn = me.titaniumtown.ArrayConstants.emptyByteArray; // Gale - JettPack - reduce array allocations
++    private byte[] heapOut = me.titaniumtown.ArrayConstants.emptyByteArray; // Gale - JettPack - reduce array allocations
+ 
+     protected CipherBase(final Cipher cipher) {
+         this.cipher = cipher;
+diff --git a/net/minecraft/network/VarInt.java b/net/minecraft/network/VarInt.java
+index 1428ce80e8316a24cfca7b6aafdea8588a5a790e..529744f10da2c403650c895168edf7f8ad5ac458 100644
+--- a/net/minecraft/network/VarInt.java
++++ b/net/minecraft/network/VarInt.java
+@@ -51,6 +51,40 @@ public class VarInt {
+     }
+ 
+     public static ByteBuf write(final ByteBuf output, int value) {
++        // Gale start - Velocity - optimized VarInt#write
++        if ((value & 0xFFFFFF80) == 0) {
++            output.writeByte(value);
++        } else if ((value & 0xFFFFC000) == 0) {
++            int w = (value & 0x7F) << 8
++                | (value >>> 7)
++                | 0x00008000;
++            output.writeShort(w);
++        } else if ((value & 0xFFE00000) == 0) {
++            int w = (value & 0x7F) << 16
++                | (value & 0x3F80) << 1
++                | (value >>> 14)
++                | 0x00808000;
++            output.writeMedium(w);
++        } else if ((value & 0xF0000000) == 0) {
++            int w = (value & 0x7F) << 24
++                | ((value & 0x3F80) << 9)
++                | (value & 0x1FC000) >> 6
++                | (value >>> 21)
++                | 0x80808000;
++            output.writeInt(w);
++        } else {
++            int w = (value & 0x7F) << 24
++                | (value & 0x3F80) << 9
++                | (value & 0x1FC000) >> 6
++                | ((value >>> 21) & 0x7F)
++                | 0x80808080;
++            output.writeInt(w);
++            output.writeByte(value >>> 28);
++        }
++        return output;
++    }
++    static ByteBuf writeOld(final ByteBuf output, int value) { // public -> package-private
++        // Gale end - Velocity - optimized VarInt#write
+         // Paper start - Optimize VarInts
+         // Peel the one and two byte count cases explicitly as they are the most common VarInt sizes
+         // that the proxy will write, to improve inlining.
+diff --git a/net/minecraft/network/VarLong.java b/net/minecraft/network/VarLong.java
+index 913442a641134fed4ad5669f190c508c3109ab6a..8eb1a10f2bd06b4f9e66eb79087244595b3498ba 100644
+--- a/net/minecraft/network/VarLong.java
++++ b/net/minecraft/network/VarLong.java
+@@ -9,6 +9,18 @@ public class VarLong {
+     private static final int DATA_BITS_PER_BYTE = 7;
+ 
+     public static int getByteSize(final long value) {
++        // Gale start - Velocity - pre-compute VarInt and VarLong sizes
++        return VARLONG_EXACT_BYTE_LENGTHS[Long.numberOfLeadingZeros(value)];
++    }
++    private static final int[] VARLONG_EXACT_BYTE_LENGTHS = new int[65];
++    static {
++        for (int i = 0; i < 64; i++) {
++            VARLONG_EXACT_BYTE_LENGTHS[i] = (int) Math.ceil((63d - (i - 1)) / 7d);
++        }
++        VARLONG_EXACT_BYTE_LENGTHS[64] = 1; // Special case for the number 0
++    }
++    static int getByteSizeOld(final long value) { // public -> package-private
++        // Gale end - Velocity - pre-compute VarInt and VarLong sizes
+         for (int i = 1; i < MAX_VARLONG_SIZE; i++) {
+             if ((value & -1L << i * DATA_BITS_PER_BYTE) == 0L) {
+                 return i;
+@@ -39,6 +51,126 @@ public class VarLong {
+     }
+ 
+     public static ByteBuf write(final ByteBuf output, long value) {
++        // Gale start - Velocity - optimized VarLong#write
++        if ((value & 0xFFFFFFFFFFFFFF80L) == 0) {
++            output.writeByte((int) value);
++        } else if (value < 0) {
++            // The case of writing arbitrary longs is common
++            // Here, the number is negative, which has probability 1/2 for arbitrary numbers
++            int least7bits = (int) (value & 0xFFFFFFFL);
++            int w = (least7bits & 0x7F) << 24
++                | (least7bits & 0x3F80) << 9
++                | (least7bits & 0x1FC000) >> 6
++                | ((least7bits >>> 21) & 0x7F)
++                | 0x80808080;
++            long nonLeast7Bits = value >>> 28;
++            int secondLeast7bits = (int) (nonLeast7Bits & 0xFFFFFFFL);
++            int w2 = (secondLeast7bits & 0x7F) << 24
++                | ((secondLeast7bits & 0x3F80) << 9)
++                | (secondLeast7bits & 0x1FC000) >> 6
++                | (secondLeast7bits >>> 21)
++                | 0x80808080;
++            int thirdLeast7Bits = (int) (nonLeast7Bits >>> 28);
++            int w3 = (thirdLeast7Bits & 0x7F) << 8
++                | (thirdLeast7Bits >>> 7)
++                | 0x00008000;
++            output.writeInt(w);
++            output.writeInt(w2);
++            output.writeShort(w3);
++        } else if ((value & 0xFFFFFFFFFFFFC000L) == 0) {
++            int least7bits = (int) value;
++            int w = (least7bits & 0x7F) << 8
++                | (least7bits >>> 7)
++                | 0x00008000;
++            output.writeShort(w);
++        } else if ((value & 0xFFFFFFFFFFE00000L) == 0) {
++            int least7bits = (int) value;
++            int w = (least7bits & 0x7F) << 16
++                | (least7bits & 0x3F80) << 1
++                | (least7bits >>> 14)
++                | 0x00808000;
++            output.writeMedium(w);
++        } else if ((value & 0xFFFFFFFFF0000000L) == 0) {
++            int least7bits = (int) value;
++            int w = (least7bits & 0x7F) << 24
++                | ((least7bits & 0x3F80) << 9)
++                | (least7bits & 0x1FC000) >> 6
++                | (least7bits >>> 21)
++                | 0x80808000;
++            output.writeInt(w);
++        } else if ((value & 0xFFFFFFF800000000L) == 0) {
++            int least7bits = (int) (value & 0xFFFFFFFL);
++            int w = (least7bits & 0x7F) << 24
++                | (least7bits & 0x3F80) << 9
++                | (least7bits & 0x1FC000) >> 6
++                | ((least7bits >>> 21) & 0x7F)
++                | 0x80808080;
++            output.writeInt(w);
++            output.writeByte((int) (value >>> 28));
++        } else if ((value & 0xFFFFFC0000000000L) == 0) {
++            int least7bits = (int) (value & 0xFFFFFFFL);
++            int w = (least7bits & 0x7F) << 24
++                | (least7bits & 0x3F80) << 9
++                | (least7bits & 0x1FC000) >> 6
++                | ((least7bits >>> 21) & 0x7F)
++                | 0x80808080;
++            int secondLeast7bits = (int) (value >>> 28);
++            int w2 = (secondLeast7bits & 0x7F) << 8
++                | (secondLeast7bits >>> 7)
++                | 0x00008000;
++            output.writeInt(w);
++            output.writeShort(w2);
++        } else if ((value & 0xFFFE000000000000L) == 0) {
++            int least7bits = (int) (value & 0xFFFFFFFL);
++            int w = (least7bits & 0x7F) << 24
++                | (least7bits & 0x3F80) << 9
++                | (least7bits & 0x1FC000) >> 6
++                | ((least7bits >>> 21) & 0x7F)
++                | 0x80808080;
++            int secondLeast7bits = (int) (value >>> 28);
++            int w2 = (secondLeast7bits & 0x7F) << 16
++                | (secondLeast7bits & 0x3F80) << 1
++                | (secondLeast7bits >>> 14)
++                | 0x00808000;
++            output.writeInt(w);
++            output.writeMedium(w2);
++        } else if ((value & 0xFF00000000000000L) == 0) {
++            int least7bits = (int) (value & 0xFFFFFFFL);
++            int w = (least7bits & 0x7F) << 24
++                | (least7bits & 0x3F80) << 9
++                | (least7bits & 0x1FC000) >> 6
++                | ((least7bits >>> 21) & 0x7F)
++                | 0x80808080;
++            int secondLeast7bits = (int) (value >>> 28);
++            int w2 = (secondLeast7bits & 0x7F) << 24
++                | ((secondLeast7bits & 0x3F80) << 9)
++                | (secondLeast7bits & 0x1FC000) >> 6
++                | (secondLeast7bits >>> 21)
++                | 0x80808000;
++            output.writeInt(w);
++            output.writeInt(w2);
++        } else {
++            int least7bits = (int) (value & 0xFFFFFFFL);
++            int w = (least7bits & 0x7F) << 24
++                | (least7bits & 0x3F80) << 9
++                | (least7bits & 0x1FC000) >> 6
++                | ((least7bits >>> 21) & 0x7F)
++                | 0x80808080;
++            long nonLeast7Bits = value >>> 28;
++            int secondLeast7bits = (int) (nonLeast7Bits & 0xFFFFFFFL);
++            int w2 = (secondLeast7bits & 0x7F) << 24
++                | ((secondLeast7bits & 0x3F80) << 9)
++                | (secondLeast7bits & 0x1FC000) >> 6
++                | (secondLeast7bits >>> 21)
++                | 0x80808080;
++            output.writeInt(w);
++            output.writeInt(w2);
++            output.writeByte((int) (nonLeast7Bits >>> 28));
++        }
++        return output;
++    }
++    static ByteBuf writeOld(ByteBuf output, long value) { // public -> package-private
++        // Gale end - Velocity - optimized VarLong#write
+         while ((value & -128L) != 0L) {
+             output.writeByte((int)(value & DATA_BITS_MASK) | CONTINUATION_BIT_MASK);
+             value >>>= DATA_BITS_PER_BYTE;
+diff --git a/net/minecraft/network/chat/PlayerChatMessage.java b/net/minecraft/network/chat/PlayerChatMessage.java
+index 3a9d3097a836bd7acce8b60d32c9d9aea12de1fc..9d0ebbaac3cfba850ad62a9e0d97973f6664d303 100644
+--- a/net/minecraft/network/chat/PlayerChatMessage.java
++++ b/net/minecraft/network/chat/PlayerChatMessage.java
+@@ -143,7 +143,7 @@ public record PlayerChatMessage(
+     }
+ 
+     public boolean hasExpiredServer(final Instant now) {
+-        return now.isAfter(this.timeStamp().plus(MESSAGE_EXPIRES_AFTER_SERVER));
++        return now.isAfter(this.timeStamp().plus(MESSAGE_EXPIRES_AFTER_SERVER)); // Gale - do not log expired message warnings - diff on change
+     }
+ 
+     public boolean hasExpiredClient(final Instant now) {
+diff --git a/net/minecraft/network/chat/SignedMessageChain.java b/net/minecraft/network/chat/SignedMessageChain.java
+index 9395c6a58ba37fb00c492065b8045f54de0a2246..3aa85202ed8fc2f45ca37504834ad2dcc141507a 100644
+--- a/net/minecraft/network/chat/SignedMessageChain.java
++++ b/net/minecraft/network/chat/SignedMessageChain.java
+@@ -49,7 +49,7 @@ public class SignedMessageChain {
+                     throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.CHAIN_BROKEN);
+                 }
+ 
+-                if (body.timeStamp().isBefore(SignedMessageChain.this.lastTimeStamp)) {
++                if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().misc.verifyChatOrder && body.timeStamp().isBefore(SignedMessageChain.this.lastTimeStamp)) { // Gale - Pufferfish - make chat order verification configurable
+                     this.setChainBroken();
+                     throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.OUT_OF_ORDER_CHAT, org.bukkit.event.player.PlayerKickEvent.Cause.OUT_OF_ORDER_CHAT); // Paper - kick event causes
+                 }
+@@ -61,7 +61,7 @@ public class SignedMessageChain {
+                     throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.INVALID_SIGNATURE);
+                 }
+ 
+-                if (unpacked.hasExpiredServer(Instant.now())) {
++                if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.chat.expiredMessageWarning && unpacked.hasExpiredServer(Instant.now())) { // Gale - do not log expired message warnings
+                     SignedMessageChain.LOGGER.warn("Received expired chat: '{}'. Is the client/server system time unsynchronized?", body.content());
+                 }
+ 
+diff --git a/net/minecraft/network/chat/contents/TranslatableContents.java b/net/minecraft/network/chat/contents/TranslatableContents.java
+index b6973f9b48092676029ff58485ec8b8dece7387b..785f5c6f683ffdb73a70afabc42d6c09abb1e1d8 100644
+--- a/net/minecraft/network/chat/contents/TranslatableContents.java
++++ b/net/minecraft/network/chat/contents/TranslatableContents.java
+@@ -28,7 +28,7 @@ import net.minecraft.util.ExtraCodecs;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class TranslatableContents implements ComponentContents {
+-    public static final Object[] NO_ARGS = new Object[0];
++    public static final Object[] NO_ARGS = me.titaniumtown.ArrayConstants.emptyObjectArray; // Gale - JettPack - reduce array allocations
+     public static final Codec<Object> PRIMITIVE_ARG_CODEC = ExtraCodecs.JAVA.validate(TranslatableContents::filterAllowedArguments);
+     private static final Codec<Object> ARG_CODEC = Codec.either(PRIMITIVE_ARG_CODEC, ComponentSerialization.CODEC)
+         .xmap(
+diff --git a/net/minecraft/server/Eula.java b/net/minecraft/server/Eula.java
+index e20f504473bb7a9c3b415aa32b6c9df64bae907a..1d2580ed215269d67a8b9c2a2a405f963ad330c4 100644
+--- a/net/minecraft/server/Eula.java
++++ b/net/minecraft/server/Eula.java
+@@ -17,17 +17,36 @@ public class Eula {
+ 
+     public Eula(final Path file) {
+         this.file = file;
+-        this.agreed = SharedConstants.IS_RUNNING_IN_IDE || this.readFile();
++        this.agreed = SharedConstants.IS_RUNNING_IN_IDE || this.readGlobalFile() || this.readFile(); // Gale - YAPFA - global EULA file
+     }
+ 
+     private boolean readFile() {
+-        try (InputStream input = Files.newInputStream(this.file)) {
++        // Gale start - YAPFA - global EULA file
++        return readFile(this.file);
++    }
++    private boolean readGlobalFile() {
++        try {
++            Path globalFile = Path.of(System.getProperty("user.home"), "eula.txt");
++
++            if (globalFile.toFile().exists()) {
++                return readFile(globalFile);
++            }
++        } catch (Throwable ignored) {
++        }
++
++        return false;
++    }
++    private boolean readFile(Path file) {
++        // Gale end - YAPFA - global EULA file
++        try (InputStream input = Files.newInputStream(file)) { // Gale - YAPFA - global EULA file
+             Properties properties = new Properties();
+             properties.load(input);
+             return Boolean.parseBoolean(properties.getProperty("eula", "false"));
+         } catch (Exception ignored) {
++            if (file == this.file) { // Gale - YAPFA - global EULA file
+             LOGGER.warn("Failed to load {}", this.file);
+             this.saveDefaults();
++            } // Gale - YAPFA - global EULA file
+             return false;
+         }
+     }
+diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
+index 5a4ed1495507738755ca47e89cfe375a1d793ce0..ed3742d925910f47227bbd69df54a33d8610d031 100644
+--- a/net/minecraft/server/MinecraftServer.java
++++ b/net/minecraft/server/MinecraftServer.java
+@@ -367,6 +367,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+     private final java.util.concurrent.atomic.AtomicInteger tickTaskTickCount = new java.util.concurrent.atomic.AtomicInteger();
+     private final Object statsLock = new Object();
+     private double @Nullable [] tps;
++    private double @Nullable [] tps5s; // Gale - Purpur - 5-second TPS average
+     private ca.spottedleaf.common.time.TickData.@Nullable MSPTData msptData5s;
+ 
+     private void addTickTime(final ca.spottedleaf.common.time.TickTime time) {
+@@ -385,6 +386,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+     private void clearTickTimeStatistics() {
+         this.msptData5s = null;
+         this.tps = null;
++        this.tps5s = null; // Gale - Purpur - 5-second TPS average
+     }
+ 
+     private static double getTPS(final ca.spottedleaf.common.time.TickData tickData, final long tickInterval) {
+@@ -400,7 +402,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         synchronized (this.statsLock) {
+             double @Nullable [] tps = this.tps;
+             if (tps == null) {
+-                tps = this.computeTPS();
++                tps = this.computeTPS(); // Gale - Purpur - 5-second TPS average - diff on change
+                 this.tps = tps;
+             }
+             return tps.clone();
+@@ -425,6 +427,46 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         };
+     }
+     // Paper end - improve tick loop
++    // Gale start - Purpur - 5-second TPS average
++    public double[] getTPSIncluding5Seconds() {
++        synchronized (this.statsLock) {
++            double[] tps5s = this.tps5s;
++            if (tps5s == null) {
++                tps5s = this.computeTPSIncluding5Seconds();
++                this.tps5s = tps5s;
++            }
++            return tps5s.clone();
++        }
++    }
++
++    private double getTPS5s() {
++        synchronized (this.statsLock) {
++            return getTPS(this.tickTimes5s, this.tickRateManager().nanosecondsPerTick());
++        }
++    }
++
++    public double[] getTPSIncluding5SecondsReadOnly() {
++        synchronized (this.statsLock) {
++            double[] tps5s = this.tps5s;
++            if (tps5s == null) {
++                tps5s = this.computeTPSIncluding5Seconds();
++                this.tps5s = tps5s;
++            }
++            return tps5s;
++        }
++    }
++
++    public double[] computeTPSIncluding5Seconds() {
++        final long interval = this.tickRateManager().nanosecondsPerTick();
++        return new double[]{
++                getTPS(this.tickTimes5s, interval),
++                getTPS(this.tickTimes1m, interval),
++                getTPS(this.tickTimes5m, interval),
++                getTPS(this.tickTimes15m, interval)
++        };
++    }
++
++    // Gale end - Purpur - 5-second TPS average
+     // Paper start - rewrite chunk system
+     private volatile Throwable chunkSystemCrash;
+ 
+@@ -1222,6 +1264,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+ 
+         profiler.push("moonrise:execute_tasks_until_tick");
+         this.waitingForNextTick = true;
++        long tickOversleepStart = System.nanoTime(); // Gale - YAPFA - last tick time
+         // implement waitForTasks
+         final boolean isLoggingEnabled = this.isTickTimeLoggingEnabled();
+         try {
+@@ -1254,12 +1297,18 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+                 }
+             }
+         } finally {
++            lastTickOversleepTime = (System.nanoTime() - tickOversleepStart) / 1000000L; // Gale - YAPFA - last tick time
+             this.waitingForNextTick = false;
+         }
+         profiler.pop();
+     }
+     // Paper end - improve tick loop
+ 
++    // Gale start - YAPFA - last tick time
++    public static long lastTickProperTime;
++    public static long lastTickOversleepTime;
++    // Gale end - YAPFA - last tick time
++
+     protected void runServer() {
+         try {
+             if (!this.initServer()) {
+@@ -1329,7 +1378,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+                         io.papermc.paper.configuration.GlobalConfiguration.get().misc.catchupTicks.or(5)
+                     );
+ 
+-                    lagging = getTPS()[0] < org.purpurmc.purpur.PurpurConfig.laggingThreshold; // Purpur - Lagging threshold
++                    lagging = this.getTPS5s() < org.purpurmc.purpur.PurpurConfig.laggingThreshold; // Purpur - Lagging threshold // Gale - Purpur - 5-second TPS average
+ 
+                     // adjust ticksBehind so that it is not greater-than catchup
+                     if (ticksBehind - catchup > 0L) {
+@@ -1688,7 +1737,9 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         this.tickFrame.start();
+         // Paper - improve tick loop - moved into runAllTasksAtTickStart
+         this.runAllTasksAtTickStart(); // Paper - improve tick loop
++        long tickProperStart = System.nanoTime(); // Gale - YAPFA - last tick time
+         this.tickServer(sprinting ? () -> false : this::haveTime);
++        lastTickProperTime = (System.nanoTime() - tickProperStart) / 1_000_000L; // Gale - YAPFA - last tick time
+         // Paper start - rewrite chunk system
+         final Throwable crash = this.chunkSystemCrash;
+         if (crash != null) {
+diff --git a/net/minecraft/server/PlayerAdvancements.java b/net/minecraft/server/PlayerAdvancements.java
+index 986a90b0c30dbf166fc670c917078695a8bcb78c..8bd2d78be2f85bb94b14fa25160d861676a743b7 100644
+--- a/net/minecraft/server/PlayerAdvancements.java
++++ b/net/minecraft/server/PlayerAdvancements.java
+@@ -147,7 +147,7 @@ public class PlayerAdvancements {
+             AdvancementHolder advancement = manager.get(id);
+             if (advancement == null) {
+                 if (!id.getNamespace().equals(Identifier.DEFAULT_NAMESPACE)) return; // CraftBukkit
+-                LOGGER.warn("Ignored advancement '{}' in progress file {} - it doesn't exist anymore?", id, this.playerSavePath);
++                if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.ignoredAdvancements) LOGGER.warn("Ignored advancement '{}' in progress file {} - it doesn't exist anymore?", id, this.playerSavePath); // Gale - Purpur - do not log ignored advancements
+             } else {
+                 this.startProgress(advancement, progress);
+                 this.progressChanged.add(advancement);
+diff --git a/net/minecraft/server/commands/SpreadPlayersCommand.java b/net/minecraft/server/commands/SpreadPlayersCommand.java
+index 04cf77b77516fc3eae7231586a9519c24bc1fcf8..9c3169b770a74824c3abdd9c90ffc63218480364 100644
+--- a/net/minecraft/server/commands/SpreadPlayersCommand.java
++++ b/net/minecraft/server/commands/SpreadPlayersCommand.java
+@@ -114,7 +114,7 @@ public class SpreadPlayersCommand {
+             throw ERROR_INVALID_MAX_HEIGHT.create(maxHeight, minY);
+         }
+ 
+-        RandomSource random = RandomSource.createThreadLocalInstance();
++        RandomSource random = source.getLevel().getRandom(); // Gale - Patina - reduce RandomSource instances
+         double minX = center.x - maxRange;
+         double minZ = center.y - maxRange;
+         double maxX = center.x + maxRange;
+diff --git a/net/minecraft/server/dedicated/DedicatedServer.java b/net/minecraft/server/dedicated/DedicatedServer.java
+index 5720bf7133f7a7fe81993e70f178fc0675bcde40..416a5d73302dacaa4a326fdb0d04cd33b561756e 100644
+--- a/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -211,7 +211,7 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         }
+ 
+         // Paper start - detect running as root
+-        if (io.papermc.paper.util.ServerEnvironment.userIsRootOrAdmin()) {
++        if (!"false".equalsIgnoreCase(System.getProperty("gale.log.warning.root")) && io.papermc.paper.util.ServerEnvironment.userIsRootOrAdmin()) { // Gale - KeYi - do not log run as root warning
+             LOGGER.warn("****************************");
+             LOGGER.warn("YOU ARE RUNNING THIS SERVER AS AN ADMINISTRATIVE OR ROOT USER. THIS IS NOT ADVISED.");
+             LOGGER.warn("YOU ARE OPENING YOURSELF UP TO POTENTIAL RISKS WHEN DOING THIS.");
+@@ -267,6 +267,13 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         org.dreeam.leaf.command.LeafCommands.registerCommands(this); // Leaf - Leaf commands
+         com.destroystokyo.paper.VersionHistoryManager.INSTANCE.getClass(); // Paper - load version history now
+ 
++        // Gale start - Pufferfish - SIMD support
++        // Initialize vectorization
++        try {
++            gg.pufferfish.pufferfish.simd.SIMDDetection.initialize();
++        } catch (Throwable ignored) {}
++        // Gale end - Pufferfish - SIMD support
++
+         // this.worldData.setGameType(properties.gameMode.get()); // CraftBukkit - moved to world loading
+         LOGGER.info("Default game type: {}", properties.gameMode.get());
+         // Paper start - Unix domain socket support
+@@ -342,7 +349,7 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         String proxyFlavor = (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.velocity.enabled) ? "Velocity" : "BungeeCord";
+         String proxyLink = (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.velocity.enabled) ? "https://docs.papermc.io/velocity/security" : "http://www.spigotmc.org/wiki/firewall-guide/";
+         // Paper end - Add Velocity IP Forwarding Support
+-        if (!this.usesAuthentication()) {
++        if (!"false".equalsIgnoreCase(System.getProperty("gale.log.warning.offline.mode")) && !this.usesAuthentication()) { // Gale - KeYi - do not log offline mode warning
+             LOGGER.warn("**** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!");
+             LOGGER.warn("The server will make no attempt to authenticate usernames. Beware.");
+             // Spigot start
+diff --git a/net/minecraft/server/gui/StatsComponent.java b/net/minecraft/server/gui/StatsComponent.java
+index e9f53520d99454536f32bb491ed1ef6b2a5ee07a..a64cdb78f17b8a65642caffb65fd91b81ec7f159 100644
+--- a/net/minecraft/server/gui/StatsComponent.java
++++ b/net/minecraft/server/gui/StatsComponent.java
+@@ -33,7 +33,7 @@ public class StatsComponent extends JComponent {
+     private void tick() {
+         long usedRam = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+         // Paper start - Improve ServerGUI
+-        double[] tps = org.bukkit.Bukkit.getTPS();
++        double[] tps = org.bukkit.Bukkit.getTPSIncluding5SecondAverage(); // Gale - Purpur - 5-second TPS average
+         String[] tpsAvg = new String[tps.length];
+ 
+         for (int g = 0; g < tps.length; g++) {
+@@ -45,7 +45,7 @@ public class StatsComponent extends JComponent {
+             + Runtime.getRuntime().freeMemory() * 100L / Runtime.getRuntime().maxMemory()
+             + "% free)";
+         this.msgs[1] = "Avg tick: " + DECIMAL_FORMAT.format((double)this.server.getAverageTickTimeNanos() / TimeUtil.NANOSECONDS_PER_MILLISECOND) + " ms";
+-        this.msgs[2] = "TPS from last 1m, 5m, 15m: " + String.join(", ", tpsAvg);
++        this.msgs[2] = "TPS from last 5s, 1m, 5m, 15m: " + String.join(", ", tpsAvg); // Gale - Purpur - 5-second TPS average
+         // Paper end - Improve ServerGUI
+         this.values[this.vp++ & 0xFF] = (int)(usedRam * 100L / Runtime.getRuntime().maxMemory());
+         this.repaint();
+diff --git a/net/minecraft/server/level/ChunkMap.java b/net/minecraft/server/level/ChunkMap.java
+index 4df6275e6d3040e48259f2bbfb27a64d939b3f8f..02e82078fa9aaa1cc2ec7e5aef57f868d578e74c 100644
+--- a/net/minecraft/server/level/ChunkMap.java
++++ b/net/minecraft/server/level/ChunkMap.java
+@@ -138,7 +138,7 @@ public class ChunkMap extends SimpleRegionStorage implements ChunkHolder.PlayerP
+     private final ChunkStatusUpdateListener chunkStatusListener;
+     private final ChunkMap.DistanceManager distanceManager;
+     private final PlayerMap playerMap = new PlayerMap();
+-    public final Int2ObjectMap<ChunkMap.TrackedEntity> entityMap = new Int2ObjectOpenHashMap<>();
++    public final Int2ObjectMap<ChunkMap.TrackedEntity> entityMap = new it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap<>(); // Gale - VMP - use linked map for entity trackers - provides faster iteration
+     private final Long2ByteMap chunkTypeCache = new Long2ByteOpenHashMap();
+     // Paper - rewrite chunk system
+     public int serverViewDistance;
+diff --git a/net/minecraft/server/level/ServerEntity.java b/net/minecraft/server/level/ServerEntity.java
+index e46f95b19da1c14f240ec6697f22b5e220e0a835..70769a9c177bd846b1c8306af32e14e95d6c39be 100644
+--- a/net/minecraft/server/level/ServerEntity.java
++++ b/net/minecraft/server/level/ServerEntity.java
+@@ -383,7 +383,7 @@ public class ServerEntity {
+         if (this.entity instanceof LivingEntity livingEntity) {
+             List<Pair<EquipmentSlot, ItemStack>> slots = Lists.newArrayList();
+ 
+-            for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++            for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+                 ItemStack itemStack = livingEntity.getItemBySlot(slot);
+                 if (!itemStack.isEmpty()) {
+                     slots.add(Pair.of(slot, itemStack.copy()));
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index d33c32118a661a29786125f34f8c396e859192f1..6749eaa605565b8ea31c6c2c15725b35b00ee2d8 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -927,7 +927,21 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+                                     }
+ 
+                                     profiler.push("tick");
+-                                    this.guardEntityTick(this::tickNonPassenger, entity);
++                                    // Gale start - Airplane - remove lambda from ticking guard - copied from guardEntityTick
++                                    try {
++                                        this.tickNonPassenger(entity);
++                                    } catch (Throwable t) {
++                                        // Paper start - Prevent block entity and entity crashes
++                                        io.papermc.paper.swift.async.SwiftAsync.ENTITY_TICK_ERRORS.incrementAndGet(); // Swift - async entities: counted for tests
++                                        final String msg = String.format("Entity threw exception at %s:%s,%s,%s", io.papermc.paper.util.MCUtil.getLevelName(entity.level()), entity.getX(), entity.getY(), entity.getZ());
++                                        MinecraftServer.LOGGER.error(msg, t);
++                                        getCraftServer().getPluginManager().callEvent(new com.destroystokyo.paper.event.server.ServerExceptionEvent(new com.destroystokyo.paper.exception.ServerInternalException(msg, t))); // Paper - ServerExceptionEvent
++                                        entity.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DISCARD);
++                                        // Paper end - Prevent block entity and entity crashes
++                                    }
++                                    if (!io.papermc.paper.swift.async.SwiftAsync.parallel) // Swift - async entities: chunk tasks only between serial ticks
++                                    this.moonrise$midTickTasks(); // Paper - rewrite chunk system
++                                    // Gale end - Airplane - remove lambda from ticking guard - copied from guardEntityTick
+                                     profiler.pop();
+                                 }
+                             }
+@@ -995,8 +1009,6 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+     }
+ 
+     // Paper start - optimise random ticking
+-    private final ca.spottedleaf.moonrise.common.util.SimpleThreadUnsafeRandom simpleRandom = new ca.spottedleaf.moonrise.common.util.SimpleThreadUnsafeRandom(net.minecraft.world.level.levelgen.RandomSupport.generateUniqueSeed());
+-
+     private void optimiseRandomTick(final LevelChunk chunk, final int tickSpeed) {
+         final LevelChunkSection[] sections = chunk.getSections();
+         final int minSection = ca.spottedleaf.moonrise.common.util.WorldUtil.getMinSection((ServerLevel)(Object)this);
+@@ -1077,7 +1089,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+         int minZ = chunkPos.getMinBlockZ();
+         ProfilerFiller profiler = Profiler.get();
+         profiler.push("thunder");
+-        if (!this.paperConfig().environment.disableThunder && raining && this.isThundering() && this.spigotConfig.thunderChance > 0 && this.random.nextInt(this.spigotConfig.thunderChance) == 0) { // Spigot // Paper - Option to disable thunder
++        if (!this.paperConfig().environment.disableThunder && raining && this.isThundering() && this.spigotConfig.thunderChance > 0 /*&& this.random.nextInt(this.spigotConfig.thunderChance) == 0*/ && chunk.shouldDoLightning(this.random)) { // Spigot // Paper - Option to disable thunder // Gale - Airplane - optimize random calls in chunk ticking - replace random with shouldDoLightning
+             BlockPos pos = this.findLightningTargetAround(this.getBlockRandomPos(minX, 0, minZ, 15));
+             if (this.isRainingAt(pos)) {
+                 DifficultyInstance difficulty = this.getCurrentDifficultyAt(pos);
+@@ -1468,7 +1480,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+ 
+     public static List<Entity> getCurrentlyTickingEntities() {
+         Entity ticking = currentlyTickingEntity.get();
+-        List<Entity> ret = java.util.Arrays.asList(ticking == null ? new Entity[0] : new Entity[] { ticking });
++        List<Entity> ret = java.util.Arrays.asList(ticking == null ? me.titaniumtown.ArrayConstants.emptyEntityArray : new Entity[] { ticking }); // Gale - JettPack - reduce array allocations
+ 
+         return ret;
+     }
+@@ -1819,6 +1831,11 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+ 
+     @Override
+     public void destroyBlockProgress(final int id, final BlockPos blockPos, final int progress) {
++        // Gale start - SportPaper - reduce block destruction packet allocations
++        var players = this.server.getPlayerList().getPlayers();
++        if (players.isEmpty()) return;
++        ClientboundBlockDestructionPacket packet = new ClientboundBlockDestructionPacket(id, blockPos, progress);
++        // Gale end - SportPaper - reduce block destruction packet allocations
+         // CraftBukkit start
+         Player breakerPlayer = null;
+         Entity entity = this.getEntity(id);
+@@ -1835,7 +1852,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+                 .callEvent();
+         }
+         // Paper end - Add BlockBreakProgressUpdateEvent
+-        for (ServerPlayer player : this.server.getPlayerList().getPlayers()) {
++        for (ServerPlayer player : players) { // Gale - SportPaper - reduce block destruction packet allocations
+             if (player.level() == this && player.getId() != id) {
+                 double xd = blockPos.getX() - player.getX();
+                 double yd = blockPos.getY() - player.getY();
+@@ -1846,7 +1863,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+                         continue;
+                     }
+                     // CraftBukkit end
+-                    player.connection.send(new ClientboundBlockDestructionPacket(id, blockPos, progress));
++                    player.connection.send(packet); // Gale - SportPaper - reduce block destruction packet allocations
+                 }
+             }
+         }
+diff --git a/net/minecraft/server/level/ServerPlayer.java b/net/minecraft/server/level/ServerPlayer.java
+index 64e14ac4f4e7731faf35be506e810be140c9971f..ea2d18c5f0a941e8af52e301855231968ae10b9f 100644
+--- a/net/minecraft/server/level/ServerPlayer.java
++++ b/net/minecraft/server/level/ServerPlayer.java
+@@ -222,6 +222,7 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+     public static final String ENDER_PEARLS_TAG = "ender_pearls";
+     public static final String ENDER_PEARL_DIMENSION_TAG = "ender_pearl_dimension";
+     public static final String TAG_DIMENSION = "Dimension";
++    public static int increaseTimeStatisticsInterval; // Gale - Hydrinity - increase time statistics in intervals - store as static field for fast access
+     private static final AttributeModifier CREATIVE_BLOCK_INTERACTION_RANGE_MODIFIER = new AttributeModifier(
+         Identifier.withDefaultNamespace("creative_mode_block_range"), 0.5, AttributeModifier.Operation.ADD_VALUE
+     );
+@@ -443,6 +444,7 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+     public boolean sentListPacket = false;
+     public boolean suppressTrackerForLogin = false; // Paper - Fire PlayerJoinEvent when Player is actually ready
+     // CraftBukkit end
++    public boolean didPlayerJoinEvent = false; // Gale - EMC - do not process chat/commands before player has joined
+     public boolean isRealPlayer; // Paper
+     public com.destroystokyo.paper.event.entity.@Nullable PlayerNaturallySpawnCreaturesEvent playerNaturallySpawnedEvent; // Paper - PlayerNaturallySpawnCreaturesEvent
+     public org.bukkit.event.player.PlayerQuitEvent.@Nullable QuitReason quitReason = null; // Paper - Add API for quit reason; there are a lot of changes to do if we change all methods leading to the event
+@@ -835,19 +837,23 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+                 }
+ 
+                 this.foodData.tick(this);
+-                this.awardStat(Stats.PLAY_TIME);
+-                this.awardStat(Stats.TOTAL_WORLD_TIME);
++                // Gale start - Hydrinity - increase time statistics in intervals
++                if (increaseTimeStatisticsInterval == 1 || this.tickCount % increaseTimeStatisticsInterval == 0) {
++                    this.awardStat(Stats.PLAY_TIME, increaseTimeStatisticsInterval);
++                    this.awardStat(Stats.TOTAL_WORLD_TIME, increaseTimeStatisticsInterval);
++                    // Gale end - Hydrinity - increase time statistics in intervals
+                 if (this.isAlive()) {
+-                    this.awardStat(Stats.TIME_SINCE_DEATH);
++                    this.awardStat(Stats.TIME_SINCE_DEATH, increaseTimeStatisticsInterval); // Gale - Hydrinity - increase time statistics in intervals
+                 }
+ 
+                 if (this.isDiscrete()) {
+-                    this.awardStat(Stats.CROUCH_TIME);
++                    this.awardStat(Stats.CROUCH_TIME, increaseTimeStatisticsInterval); // Gale - Hydrinity - increase time statistics in intervals
+                 }
+ 
+                 if (!this.isSleeping()) {
+-                    this.awardStat(Stats.TIME_SINCE_REST);
++                    this.awardStat(Stats.TIME_SINCE_REST, increaseTimeStatisticsInterval); // Gale - Hydrinity - increase time statistics in intervals
+                 }
++                } // Gale - Hydrinity - increase time statistics in intervals
+             }
+ 
+             for (int i = 0; i < this.getInventory().getContainerSize(); i++) {
+@@ -1241,7 +1247,7 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+                     this.getInventory().getNonEquipmentItems().set(i, net.minecraft.world.item.ItemStack.EMPTY);
+                 }
+             }
+-            for (final EquipmentSlot value : EquipmentSlot.VALUES) {
++            for (final EquipmentSlot value : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+                 if (this.getInventory().equipment.has(value) && !shouldKeepDeathEventItem(event, this.getInventory().equipment.get(value))) {
+                     this.getInventory().equipment.set(value, net.minecraft.world.item.ItemStack.EMPTY);
+                 }
+@@ -2420,12 +2426,18 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+ 
+     @Override
+     public void crit(final Entity entity) {
+-        this.level().getChunkSource().sendToTrackingPlayersAndSelf(this, new ClientboundAnimatePacket(entity, ClientboundAnimatePacket.CRITICAL_HIT));
++        // Gale start - MultiPaper - broadcast crit animations as the entity being critted
++        var level = this.level();
++        level.getChunkSource().sendToTrackingPlayersAndSelf(level.galeConfig().gameplayMechanics.fixes.broadcastCritAnimationsAsTheEntityBeingCritted ? entity : this, new ClientboundAnimatePacket(entity, ClientboundAnimatePacket.CRITICAL_HIT));
++        // Gale end - MultiPaper - broadcast crit animations as the entity being critted
+     }
+ 
+     @Override
+     public void magicCrit(final Entity entity) {
+-        this.level().getChunkSource().sendToTrackingPlayersAndSelf(this, new ClientboundAnimatePacket(entity, ClientboundAnimatePacket.MAGIC_CRITICAL_HIT));
++        // Gale start - MultiPaper - broadcast crit animations as the entity being critted
++        var level = this.level();
++        level.getChunkSource().sendToTrackingPlayersAndSelf(level.galeConfig().gameplayMechanics.fixes.broadcastCritAnimationsAsTheEntityBeingCritted ? entity : this, new ClientboundAnimatePacket(entity, ClientboundAnimatePacket.MAGIC_CRITICAL_HIT));
++        // Gale end - MultiPaper - broadcast crit animations as the entity being critted
+     }
+ 
+     @Override
+diff --git a/net/minecraft/server/level/WorldGenRegion.java b/net/minecraft/server/level/WorldGenRegion.java
+index 6f3b53b40df0263656dc195c82265de8374155d2..cc838464dbe2d2f060494ec913e589058bee24f3 100644
+--- a/net/minecraft/server/level/WorldGenRegion.java
++++ b/net/minecraft/server/level/WorldGenRegion.java
+@@ -378,7 +378,7 @@ public class WorldGenRegion implements WorldGenLevel {
+             int chunkX = SectionPos.blockToSectionCoord(pos.getX());
+             int chunkZ = SectionPos.blockToSectionCoord(pos.getZ());
+             // Paper start - Buffer OOB setBlock calls
+-            if (!hasSetFarWarned) {
++            if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.setBlockInFarChunk && !hasSetFarWarned) { // Gale - Purpur - do not log setBlock in far chunks
+             Util.logAndPauseIfInIde(
+                 "Detected setBlock in a far chunk ["
+                     + chunkX
+diff --git a/net/minecraft/server/network/ServerCommonPacketListenerImpl.java b/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
+index 01b5781718b1888e97ed65df6faa254330dc9b3b..37883c3b4aaef97c22978e66a53aff71d4afcd11 100644
+--- a/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
+@@ -40,10 +40,11 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+     public final Connection connection; // Paper
+     private final boolean transferred;
+     //private long keepAliveTime; // Paper - improve keepalives
+-    //private boolean keepAlivePending; // Paper - improve keepalives
++    private boolean keepAlivePending; // Paper - improve keepalives // Purpur - Alternative Keepalive Handling
+     //private long keepAliveChallenge; // Paper - improve keepalives
+     private long closedListenerTime;
+     private boolean closed = false;
++    private it.unimi.dsi.fastutil.longs.LongList keepAlives = new it.unimi.dsi.fastutil.longs.LongArrayList(); // Gale - Purpur - send multiple keep-alive packets
+     private volatile int latency; // Paper - improve keepalives - make volatile
+     private final io.papermc.paper.util.KeepAlive keepAlive; // Paper - improve keepalives
+     private volatile boolean suspendFlushingOnServerThread = false;
+@@ -51,7 +52,10 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+     public final org.bukkit.craftbukkit.CraftServer cserver;
+     // CraftBukkit end
+     public final java.util.Map<java.util.UUID, net.kyori.adventure.resource.ResourcePackCallback> packCallbacks = new java.util.concurrent.ConcurrentHashMap<>(); // Paper - adventure resource pack callbacks
+-    private static final long KEEPALIVE_LIMIT = Long.getLong("paper.playerconnection.keepalive", 30) * 1000; // Paper - provide property to set keepalive limit
++    // Gale start - Purpur - send multiple keep-alive packets
++    private static final long KEEPALIVE_LIMIT_IN_SECONDS = Long.getLong("paper.playerconnection.keepalive", 30); // Paper - provide property to set keepalive limit
++    private static final long KEEPALIVE_LIMIT = KEEPALIVE_LIMIT_IN_SECONDS * 1000;
++    // Gale end - Purpur - send multiple keep-alive packets
+     protected static final net.minecraft.resources.Identifier MINECRAFT_BRAND = net.minecraft.resources.Identifier.withDefaultNamespace("brand"); // Paper - Brand support
+     // Purpur start - Purpur client support
+     protected static final net.minecraft.resources.Identifier PURPUR_CLIENT = net.minecraft.resources.Identifier.fromNamespaceAndPath("purpur", "client");
+@@ -108,6 +112,18 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+         // Paper start - improve keepalives
+         long now = System.nanoTime();
+         io.papermc.paper.util.KeepAlive.PendingKeepAlive pending = this.keepAlive.pendingKeepAlives.peek();
++        // Gale start - Purpur - send multiple keep-alive packets
++        if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().misc.keepalive.sendMultiple) {
++            if (this.keepAlivePending && !keepAlives.isEmpty() && keepAlives.contains(packet.getId())) {
++                int ping = (int) (Util.getMillis() - packet.getId());
++                int updatedLatency = (this.latency * 3 + ping) / 4;
++                this.latency = updatedLatency;
++                this.keepAlivePending = false;
++                this.keepAlives.clear(); // We got a valid response, let's roll with it and forget the rest
++            }
++            return;
++        } else {
++            // Gale end - Purpur - send multiple keep-alive packets
+         if (pending != null && pending.challengeId() == packet.getId()) {
+             this.keepAlive.pendingKeepAlives.remove(pending);
+ 
+@@ -119,6 +135,7 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+             this.latency = this.keepAlive.pingCalculator5s.getAvgLatencyMS();
+             return;
+         }
++        } // Gale - Purpur - send multiple keep-alive packets
+ 
+         for (java.util.Iterator<io.papermc.paper.util.KeepAlive.PendingKeepAlive> itr = this.keepAlive.pendingKeepAlives.iterator(); itr.hasNext();) {
+             io.papermc.paper.util.KeepAlive.PendingKeepAlive ka = itr.next();
+@@ -266,6 +283,24 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+     protected void keepConnectionAlive() {
+         Profiler.get().push("keepAlive");
+         long now = Util.getMillis();
++        // Gale start - Purpur - send multiple keep-alive packets
++        if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().misc.keepalive.sendMultiple) {
++            if (this.checkIfClosed(now)) {
++                long currTime = System.nanoTime();
++                if ((currTime - this.keepAlive.lastKeepAliveTx) >= java.util.concurrent.TimeUnit.SECONDS.toNanos(1L)) { // 1 second
++                    this.keepAlive.lastKeepAliveTx = currTime;
++                    if (this.keepAlivePending && keepAlives.size() * 1000L >= KEEPALIVE_LIMIT) {
++                        LOGGER.info("{} was kicked due to keepalive timeout!", this.playerProfile().name());
++                        this.disconnect(TIMEOUT_DISCONNECTION_MESSAGE, io.papermc.paper.connection.DisconnectionReason.TIMEOUT);
++                    } else if (this.checkIfClosed(now)) {
++                        this.keepAlivePending = true;
++                        this.keepAlives.add(now); // currentTime is ID
++                        this.send(new ClientboundKeepAlivePacket(now));
++                    }
++                }
++            }
++        } else {
++            // Gale end - Purpur - send multiple keep-alive packets
+         // Paper start - improve keepalives
+         if (this.checkIfClosed(now)) {
+             long currTime = System.nanoTime();
+@@ -285,6 +320,7 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+                 // Paper end - improve keepalives
+             }
+         }
++        } // Gale - Purpur - send multiple keep-alive packets
+ 
+         Profiler.get().pop();
+     }
+diff --git a/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+index a127e06fae7ff1afba9c14eab4f0bc6ad0219b81..585b783380723253445bce4350eb993b263f9283 100644
+--- a/net/minecraft/server/network/ServerGamePacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+@@ -1367,6 +1367,12 @@ public class ServerGamePacketListenerImpl
+ 
+     @Override
+     public void handleEditBook(final ServerboundEditBookPacket packet) {
++        // Gale start - Pufferfish - make book writing configurable
++        final org.bukkit.craftbukkit.entity.CraftPlayer craftPlayer = this.player.getBukkitEntity();
++        if (!(org.galemc.gale.configuration.GaleGlobalConfiguration.get().gameplayMechanics.enableBookWriting || craftPlayer.hasPermission(org.bukkit.craftbukkit.util.permissions.CraftDefaultPermissions.writeBooks) || craftPlayer.hasPermission("pufferfish.usebooks"))) {
++            return;
++        }
++        // Gale end - Pufferfish - make book writing configurable
+         // Paper start - Book size limits
+         final io.papermc.paper.configuration.type.number.IntOr.Disabled pageMax = io.papermc.paper.configuration.GlobalConfiguration.get().itemValidation.bookSize.pageMax;
+         if (!this.cserver.isPrimaryThread() && pageMax.enabled()) {
+@@ -2667,7 +2673,7 @@ public class ServerGamePacketListenerImpl
+             this.disconnectAsync(Component.translatable("multiplayer.disconnect.illegal_characters"), org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_CHARACTERS); // Paper - add proper async disconnect
+         } else if (this.player.isRemoved() || (!isCommand && this.player.getChatVisibility() == ChatVisiblity.HIDDEN)) { // CraftBukkit - dead men tell no tales
+             this.send(new ClientboundSystemChatPacket(Component.translatable("chat.disabled.options").withStyle(ChatFormatting.RED), false));
+-        } else {
++        } else if (player.didPlayerJoinEvent) { // Gale - EMC - do not process chat/commands before player has joined
+             this.player.resetLastActionTime();
+             // CraftBukkit start
+             if (sync) {
+@@ -2749,7 +2755,7 @@ public class ServerGamePacketListenerImpl
+         // CraftBukkit start
+         String rawMessage = message.signedContent();
+         if (rawMessage.isEmpty()) {
+-            LOGGER.warn("{} tried to send an empty message", this.player.getScoreboardName());
++            if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.chat.emptyMessageWarning) LOGGER.warn("{} tried to send an empty message", this.player.getScoreboardName()); // Gale - do not log empty message warnings
+         } else if (this.getCraftPlayer().isConversing()) {
+             final String conversationInput = rawMessage;
+             this.server.processQueue.add(() -> ServerGamePacketListenerImpl.this.getCraftPlayer().acceptConversationInput(conversationInput));
+@@ -3074,7 +3080,7 @@ public class ServerGamePacketListenerImpl
+                             // SPIGOT-7136 - Allays
+                             if (target instanceof net.minecraft.world.entity.animal.allay.Allay || target instanceof net.minecraft.world.entity.animal.equine.AbstractHorse) { // Paper - Fix horse armor desync
+                                 ServerGamePacketListenerImpl.this.send(new net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket(
+-                                    target.getId(), java.util.Arrays.stream(net.minecraft.world.entity.EquipmentSlot.values())
++                                    target.getId(), java.util.Arrays.stream(net.minecraft.world.entity.EquipmentSlot.VALUES_ARRAY) // Gale - JettPack - reduce array allocations
+                                     .map((slot) -> com.mojang.datafixers.util.Pair.of(slot, ((LivingEntity) target).getItemBySlot(slot).copy()))
+                                     .collect(Collectors.toList()), true)); // Paper - sanitize
+                                 player.containerMenu.sendAllDataToRemote();
+diff --git a/net/minecraft/server/network/ServerHandshakePacketListenerImpl.java b/net/minecraft/server/network/ServerHandshakePacketListenerImpl.java
+index 649f9646abb1bd84f1f22409aee09d2a4d27e581..d39379b2a9a087b38c96ebc31179c1bc6e6693ed 100644
+--- a/net/minecraft/server/network/ServerHandshakePacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerHandshakePacketListenerImpl.java
+@@ -20,7 +20,7 @@ public class ServerHandshakePacketListenerImpl implements ServerHandshakePacketL
+     static final java.util.regex.Pattern PROP_PATTERN = java.util.regex.Pattern.compile("\\w{0,16}");
+     // Spigot end
+     // Paper start - Connection throttle
+-    private static final java.util.Map<java.net.InetAddress, Long> throttleTracker = new java.util.HashMap<>();
++    private static final it.unimi.dsi.fastutil.objects.Object2LongMap<java.net.InetAddress> throttleTracker = new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>(); // Gale - Dionysus - replace throttle tracker map with optimized collection
+     private static int throttleCounter = 0;
+     // Paper end - Connection throttle
+     private static final boolean BYPASS_HOSTCHECK = Boolean.getBoolean("Paper.bypassHostCheck"); // Paper
+@@ -80,7 +80,7 @@ public class ServerHandshakePacketListenerImpl implements ServerHandshakePacketL
+                 java.net.InetAddress address = socketAddress.getAddress();
+ 
+                 synchronized (ServerHandshakePacketListenerImpl.throttleTracker) {
+-                    if (ServerHandshakePacketListenerImpl.throttleTracker.containsKey(address) && currentTime - ServerHandshakePacketListenerImpl.throttleTracker.get(address) < connectionThrottle) {
++                    if (ServerHandshakePacketListenerImpl.throttleTracker.containsKey(address) && currentTime - ServerHandshakePacketListenerImpl.throttleTracker.getLong(address) < connectionThrottle) { // Gale - Dionysus - replace throttle tracker map with optimized collection
+                         ServerHandshakePacketListenerImpl.throttleTracker.put(address, currentTime);
+                         Component chatmessage = io.papermc.paper.adventure.PaperAdventure.asVanilla(io.papermc.paper.configuration.GlobalConfiguration.get().messages.kick.connectionThrottle);
+                         this.connection.send(new ClientboundLoginDisconnectPacket(chatmessage));
+diff --git a/net/minecraft/server/network/ServerLoginPacketListenerImpl.java b/net/minecraft/server/network/ServerLoginPacketListenerImpl.java
+index bc3dc6e5add8051650d64808e3839be5f9e36f36..78ea7ce4efb35d103670b2792087c1840aa13de9 100644
+--- a/net/minecraft/server/network/ServerLoginPacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerLoginPacketListenerImpl.java
+@@ -104,7 +104,10 @@ public class ServerLoginPacketListenerImpl implements ServerLoginPacketListener,
+     }
+     public void tickTimeout() {
+     // Paper end - login cookie API
+-        if (this.tick++ == 600) {
++        // Gale start - make slow login timeout configurable
++        int slowLoginTimeout = org.galemc.gale.configuration.GaleGlobalConfiguration.get().misc.premiumAccountSlowLoginTimeout;
++        if (this.tick++ >= (slowLoginTimeout < 1 ? MAX_TICKS_BEFORE_LOGIN : slowLoginTimeout)) {
++            // Gale end - make slow login timeout configurable
+             this.disconnectAsync(Component.translatable("multiplayer.disconnect.slow_login")); // Paper
+         }
+     }
+@@ -134,6 +137,14 @@ public class ServerLoginPacketListenerImpl implements ServerLoginPacketListener,
+     // Paper end
+     public void disconnect(final Component component) {
+         try {
++            // Gale start - Pufferfish - do not log disconnections with null id
++            if (!org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.nullIdDisconnections && this.authenticatedProfile != null && this.authenticatedProfile.id() == null) {
++                String reasonString = component.getString();
++                if ("Disconnected".equals(reasonString) || Component.translatable("multiplayer.disconnect.generic").getString().equals(reasonString)) {
++                    return;
++                }
++            }
++            // Gale end - Pufferfish - do not log disconnections with null id
+             LOGGER.info("Disconnecting {}: {}", this.getUserName(), component.getString());
+             this.connection.send(new ClientboundLoginDisconnectPacket(component));
+             this.connection.disconnect(component);
+diff --git a/net/minecraft/server/network/ServerStatusPacketListenerImpl.java b/net/minecraft/server/network/ServerStatusPacketListenerImpl.java
+index fc7b0b1dd054bddd830983b7f07a92169c886518..030eab2687b49346479a099b83c2072b74be53e2 100644
+--- a/net/minecraft/server/network/ServerStatusPacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerStatusPacketListenerImpl.java
+@@ -37,6 +37,7 @@ public class ServerStatusPacketListenerImpl implements ServerStatusPacketListene
+         } else {
+             this.hasRequestedStatus = true;
+             // this.connection.send(new ClientboundStatusResponsePacket(this.status)); // Paper
++            if (net.minecraft.server.MinecraftServer.getServer().getStatus().version().isEmpty()) return; // Gale - Purpur - fix 'outdated server' showing in ping before server fully boots - do not respond to pings before we know the protocol version
+             com.destroystokyo.paper.network.StandardPaperServerListPingEventImpl.processRequest(net.minecraft.server.MinecraftServer.getServer(), this.connection); // Paper - handle status request
+         }
+     }
+diff --git a/net/minecraft/server/players/PlayerList.java b/net/minecraft/server/players/PlayerList.java
+index f603cedb8184e745fe29a7c7604d2fec06157adf..0b24986a9ec761535a0d5626e07c092628e5600e 100644
+--- a/net/minecraft/server/players/PlayerList.java
++++ b/net/minecraft/server/players/PlayerList.java
+@@ -117,6 +117,7 @@ public abstract class PlayerList {
+     private final MinecraftServer server;
+     private final List<ServerPlayer> players = new java.util.concurrent.CopyOnWriteArrayList(); // CraftBukkit - ArrayList -> CopyOnWriteArrayList: Iterator safety
+     private final Map<UUID, ServerPlayer> playersByUUID = Maps.newHashMap();
++    private final ServerPlayer[][] sendAllPlayerInfoBuckets = new ServerPlayer[SEND_PLAYER_INFO_INTERVAL][]; // Gale - Purpur - spread out sending all player info
+     private final Map<NameAndId, PermissionLevel> playerPermissions = Maps.newHashMap();
+     private final UserBanList bans;
+     private final IpBanList ipBans;
+@@ -227,6 +228,7 @@ public abstract class PlayerList {
+         this.players.add(player);
+         this.playersByName.put(player.getScoreboardName().toLowerCase(java.util.Locale.ROOT), player); // Spigot
+         this.playersByUUID.put(player.getUUID(), player);
++        this.addToSendAllPlayerInfoBuckets(player); // Gale - Purpur - spread out sending all player info
+         // this.broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(player))); // CraftBukkit - replaced with loop below
+         // Paper start - Fire PlayerJoinEvent when Player is actually ready; correctly register player BEFORE PlayerJoinEvent, so the entity is valid and doesn't require tick delay hacks
+         player.suppressTrackerForLogin = true;
+@@ -249,6 +251,8 @@ public abstract class PlayerList {
+         }
+         io.papermc.paper.fastpaper.bar.StatusBars.onJoin(bukkitPlayer); // FastPaper - tpsbar and rambar
+ 
++        player.didPlayerJoinEvent = true; // Gale - EMC - do not process chat/commands before player has joined
++
+         final net.kyori.adventure.text.Component jm = playerJoinEvent.joinMessage();
+ 
+         if (jm != null && !jm.equals(net.kyori.adventure.text.Component.empty())) { // Paper - Adventure
+@@ -318,6 +322,7 @@ public abstract class PlayerList {
+         }
+         // Paper end - Configurable player collision
+         org.purpurmc.purpur.task.BossBarTask.addToAll(player); // Purpur - Implement TPSBar
++        if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.playerLoginLocations) { // Gale - JettPack - make logging login location configurable
+         // CraftBukkit start - moved down
+         LOGGER.info(
+             "{}[{}] logged in with entity id {} at ([{}]{}, {}, {})", // Paper - add world identifier
+@@ -330,6 +335,16 @@ public abstract class PlayerList {
+             player.getZ()
+         );
+         // CraftBukkit end - moved down
++            // Gale start - JettPack - make logging login location configurable
++        } else {
++            LOGGER.info(
++                    "{}[{}] logged in with entity id {}", // CraftBukkit - add world name
++                    player.getPlainTextName(),
++                    address,
++                    player.getId()
++            );
++        }
++        // Gale end - JettPack - make logging login location configurable
+         // Paper start - Send empty chunk, so players aren't stuck in the world loading screen with our chunk system not sending chunks when dead
+         if (player.isDeadOrDying()) {
+             net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome> plains = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BIOME)
+@@ -506,6 +521,7 @@ public abstract class PlayerList {
+         player.getAdvancements().clearTriggers();
+         this.players.remove(player);
+         this.playersByName.remove(player.getScoreboardName().toLowerCase(java.util.Locale.ROOT)); // Spigot
++        this.removeFromSendAllPlayerInfoBuckets(player); // Gale - Purpur - spread out sending all player info
+         this.server.getCustomBossEvents().onPlayerDisconnect(player);
+         UUID uuid = player.getUUID();
+         ServerPlayer serverPlayer = this.playersByUUID.get(uuid);
+@@ -610,6 +626,7 @@ public abstract class PlayerList {
+         // Paper end - respawn event
+         this.players.remove(serverPlayer);
+         this.playersByName.remove(serverPlayer.getScoreboardName().toLowerCase(java.util.Locale.ROOT)); // Paper
++        this.removeFromSendAllPlayerInfoBuckets(serverPlayer); // Gale - Purpur - spread out sending all player info
+         serverPlayer.level().removePlayerImmediately(serverPlayer, removalReason);
+         ServerLevel level = respawnInfo.newLevel();
+         ServerPlayer player = serverPlayer; // Paper - TODO - recreate instance
+@@ -661,6 +678,7 @@ public abstract class PlayerList {
+         this.players.add(player);
+         this.playersByName.put(player.getScoreboardName().toLowerCase(java.util.Locale.ROOT), player); // Paper
+         this.playersByUUID.put(player.getUUID(), player);
++        this.addToSendAllPlayerInfoBuckets(serverPlayer); // Gale - Purpur - spread out sending all player info
+         player.initInventoryMenu();
+         player.setHealth(player.getHealth());
+         // Paper start - Once we not reuse the player entity we can remove this.
+@@ -746,18 +764,58 @@ public abstract class PlayerList {
+     }
+ 
+     public void tick() {
+-        if (++this.sendAllPlayerInfoIn > 600) {
+-            // CraftBukkit start
+-            for (int i = 0; i < this.players.size(); ++i) {
+-                final ServerPlayer target = this.players.get(i);
++        // Gale start - Purpur - spread out sending all player info
++        ServerPlayer[] sendAllPlayerInfoBucket = this.sendAllPlayerInfoBuckets[this.sendAllPlayerInfoIn];
++
++        if (sendAllPlayerInfoBucket != null) {
++            for (ServerPlayer target : sendAllPlayerInfoBucket) {
++                // Gale end - Purpur - spread out sending all player info
+ 
+                 target.connection.send(new ClientboundPlayerInfoUpdatePacket(EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY), com.google.common.collect.Collections2.filter(this.players, t -> target.getBukkitEntity().canSee(t.getBukkitEntity()))));
+             }
+-            // CraftBukkit end
++            // Gale start - Purpur - spread out sending all player info
++        }
++
++        if (++this.sendAllPlayerInfoIn >= SEND_PLAYER_INFO_INTERVAL) {
++            // Gale end - Purpur - spread out sending all player info
+             this.sendAllPlayerInfoIn = 0;
+         }
+     }
+ 
++    // Gale start - Purpur - spread out sending all player info
++    private void addToSendAllPlayerInfoBuckets(ServerPlayer player) {
++        ServerPlayer[] sendAllPlayerInfoBucket = this.sendAllPlayerInfoBuckets[player.sendAllPlayerInfoBucketIndex];
++
++        if (sendAllPlayerInfoBucket == null) {
++            this.sendAllPlayerInfoBuckets[player.sendAllPlayerInfoBucketIndex] = new ServerPlayer[]{player};
++        } else {
++            this.sendAllPlayerInfoBuckets[player.sendAllPlayerInfoBucketIndex] = sendAllPlayerInfoBucket = java.util.Arrays.copyOf(sendAllPlayerInfoBucket, sendAllPlayerInfoBucket.length + 1);
++            sendAllPlayerInfoBucket[sendAllPlayerInfoBucket.length - 1] = player;
++        }
++    }
++
++    private void removeFromSendAllPlayerInfoBuckets(ServerPlayer player) {
++        ServerPlayer[] sendAllPlayerInfoBucket = this.sendAllPlayerInfoBuckets[player.sendAllPlayerInfoBucketIndex];
++
++        if (sendAllPlayerInfoBucket != null) {
++            if (sendAllPlayerInfoBucket.length == 1) {
++                if (sendAllPlayerInfoBucket[0] == player) {
++                    this.sendAllPlayerInfoBuckets[player.sendAllPlayerInfoBucketIndex] = null;
++                }
++
++                return;
++            }
++
++            for (int i = 0; i < sendAllPlayerInfoBucket.length; i++) {
++                if (sendAllPlayerInfoBucket[i] == player) {
++                    sendAllPlayerInfoBucket[i] = sendAllPlayerInfoBucket[sendAllPlayerInfoBucket.length - 1];
++                    this.sendAllPlayerInfoBuckets[player.sendAllPlayerInfoBucketIndex] = java.util.Arrays.copyOf(sendAllPlayerInfoBucket, sendAllPlayerInfoBucket.length - 1);
++                }
++            }
++        }
++    }
++    // Gale end - Purpur - spread out sending all player info
++
+     // CraftBukkit start - add a world/entity limited version
+     public void broadcastAll(Packet packet, net.minecraft.world.entity.player.Player entityhuman) {
+         for (ServerPlayer entityplayer : this.players) { // Paper - replace for i with for each for thread safety
+@@ -1177,7 +1235,7 @@ public abstract class PlayerList {
+     public void broadcastChatMessage(final PlayerChatMessage message, final Predicate<ServerPlayer> isFiltered, final @Nullable ServerPlayer senderPlayer, final ChatType.Bound chatType, final @Nullable Function<net.kyori.adventure.audience.Audience, Component> unsignedFunction) {
+         // Paper end
+         boolean trusted = this.verifyChatTrusted(message);
+-        this.server.logChatMessage((unsignedFunction == null ? message.decoratedContent() : unsignedFunction.apply(this.server.console)), chatType, trusted ? null : "Not Secure"); // Paper
++        this.server.logChatMessage((unsignedFunction == null ? message.decoratedContent() : unsignedFunction.apply(this.server.console)), chatType, trusted || !org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.chat.notSecureMarker ? null : "Not Secure"); // Paper // Gale - do not log Not Secure marker
+         OutgoingChatMessage tracked = OutgoingChatMessage.create(message);
+         boolean wasFullyFiltered = false;
+ 
+diff --git a/net/minecraft/server/players/StoredUserList.java b/net/minecraft/server/players/StoredUserList.java
+index eaf8fb8a9cf94d0d16debf90e5ceda3f91c979ef..174febed3e10ed50c7ec8b1eb8771a533ce882fb 100644
+--- a/net/minecraft/server/players/StoredUserList.java
++++ b/net/minecraft/server/players/StoredUserList.java
+@@ -96,7 +96,7 @@ public abstract class StoredUserList<K, V extends StoredUserEntry<K>> {
+     }
+ 
+     public String[] getUserList() {
+-        return this.map.keySet().toArray(new String[0]);
++        return this.map.keySet().toArray(me.titaniumtown.ArrayConstants.emptyStringArray); // Gale - JettPack - reduce array allocations
+     }
+ 
+     public boolean isEmpty() {
+diff --git a/net/minecraft/server/rcon/thread/QueryThreadGs4.java b/net/minecraft/server/rcon/thread/QueryThreadGs4.java
+index 9c29b275236ad8a79beb130199113dcbda948a14..f036c4eaf68e957333bdb4b81be0010cbfd98c2e 100644
+--- a/net/minecraft/server/rcon/thread/QueryThreadGs4.java
++++ b/net/minecraft/server/rcon/thread/QueryThreadGs4.java
+@@ -341,7 +341,7 @@ public class QueryThreadGs4 extends GenericThread {
+             this.identBytes[2] = buf[5];
+             this.identBytes[3] = buf[6];
+             this.ident = new String(this.identBytes, StandardCharsets.UTF_8);
+-            this.challenge = RandomSource.createThreadLocalInstance().nextInt(16777216);
++            this.challenge = java.util.concurrent.ThreadLocalRandom.current().nextInt(16777216); // Gale - Patina - reduce RandomSource instances
+             this.challengeBytes = String.format(Locale.ROOT, "\t%s%d\u0000", this.ident, this.challenge).getBytes(StandardCharsets.UTF_8);
+         }
+ 
+diff --git a/net/minecraft/stats/ServerRecipeBook.java b/net/minecraft/stats/ServerRecipeBook.java
+index ac3fbaf20c3ed8ca981c9071f1bf95f2ad169f85..95a50f25455ec86f7662e9abd039be17609ed1e4 100644
+--- a/net/minecraft/stats/ServerRecipeBook.java
++++ b/net/minecraft/stats/ServerRecipeBook.java
+@@ -110,7 +110,7 @@ public class ServerRecipeBook extends RecipeBook {
+     ) {
+         for (ResourceKey<Recipe<?>> recipe : recipes) {
+             if (!validator.test(recipe)) {
+-                LOGGER.error("Tried to load unrecognized recipe: {} removed now.", recipe);
++                if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.unrecognizedRecipes) LOGGER.error("Tried to load unrecognized recipe: {} removed now.", recipe); // Gale - Purpur - do not log unrecognized recipes
+             } else {
+                 recipeAddingMethod.accept(recipe);
+             }
+diff --git a/net/minecraft/stats/ServerStatsCounter.java b/net/minecraft/stats/ServerStatsCounter.java
+index f5beb001b938072e78c0ead7e0ad0499784ed1cf..eb40f1bdab68d51047df702a0e4ad8a7931a134f 100644
+--- a/net/minecraft/stats/ServerStatsCounter.java
++++ b/net/minecraft/stats/ServerStatsCounter.java
+@@ -121,7 +121,7 @@ public class ServerStatsCounter extends StatsCounter {
+         this.stats
+             .putAll(
+                 STATS_CODEC.parse(data.get("stats").orElseEmptyMap())
+-                    .resultOrPartial(error -> LOGGER.error("Failed to parse statistics for {}: {}", this.file, error))
++                    .resultOrPartial(error -> {if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().logToConsole.invalidStatistics) LOGGER.error("Failed to parse statistics for {}: {}", this.file, error);}) // Gale - EMC - do not log invalid statistics
+                     .orElse(Map.of())
+             );
+     }
+diff --git a/net/minecraft/util/Mth.java b/net/minecraft/util/Mth.java
+index 47e6b1a772698d0172223a18748158e2e5381073..611a7305fca7852af541d95e1f91ac296bc82df2 100644
+--- a/net/minecraft/util/Mth.java
++++ b/net/minecraft/util/Mth.java
+@@ -167,14 +167,26 @@ public class Mth {
+         return Math.floorMod(input, mod);
+     }
+ 
+-    public static float positiveModulo(final float input, final float mod) {
++    public static float positiveModuloForAnyDenominator(final float input, final float mod) {
+         return (input % mod + mod) % mod;
+     }
+ 
+-    public static double positiveModulo(final double input, final double mod) {
++    public static double positiveModuloForAnyDenominator(final double input, final double mod) {
+         return (input % mod + mod) % mod;
+     }
+ 
++    // Gale start - faster floating-point positive modulo
++    public static float positiveModuloForPositiveIntegerDenominator(float input, float mod) {
++        var modulo = input % mod;
++        return modulo < 0 ? modulo + mod : modulo;
++    }
++
++    public static double positiveModuloForPositiveIntegerDenominator(double input, double mod) {
++        var modulo = input % mod;
++        return modulo < 0 ? modulo + mod : modulo;
++    }
++    // Gale end - faster floating-point positive modulo
++
+     public static boolean isMultipleOf(final int dividend, final int divisor) {
+         return dividend % divisor == 0;
+     }
+diff --git a/net/minecraft/util/NullOps.java b/net/minecraft/util/NullOps.java
+index c7510c99c68c66a64d391b67d93f31cfcd3dccf0..5785ecf52bbd68e6df0f25b917722999addb6a20 100644
+--- a/net/minecraft/util/NullOps.java
++++ b/net/minecraft/util/NullOps.java
+@@ -171,7 +171,7 @@ public class NullOps implements DynamicOps<Unit> {
+ 
+     @Override
+     public DataResult<ByteBuffer> getByteBuffer(final Unit input) {
+-        return DataResult.success(ByteBuffer.wrap(new byte[0]));
++        return DataResult.success(ByteBuffer.wrap(me.titaniumtown.ArrayConstants.emptyByteArray)); // Gale - JettPack - reduce array allocations
+     }
+ 
+     @Override
+diff --git a/net/minecraft/util/SpecialDates.java b/net/minecraft/util/SpecialDates.java
+index a6018d9fba0957fc721cebc9f366767fa04d4950..5d663a3b26de7eac1bfd25245b0cadb60d721264 100644
+--- a/net/minecraft/util/SpecialDates.java
++++ b/net/minecraft/util/SpecialDates.java
+@@ -13,12 +13,58 @@ public class SpecialDates {
+     public static final MonthDay CHRISTMAS = MonthDay.of(Month.DECEMBER, 24);
+     public static final MonthDay NEW_YEAR = MonthDay.of(Month.JANUARY, 1);
+ 
++    // Gale start - predict Halloween
++    /**
++     * The 1-indexed month of the year that Halloween starts (inclusive).
++     */
++    private static final int halloweenMonthOfYear = 10;
++
++    /**
++     * The 1-indexed day of the month that Halloween starts (inclusive).
++     */
++    private static final int halloweenDayOfMonth = 31;
++
++    /**
++     * The next start of Halloween, given as milliseconds since the Unix epoch.
++     * Will be 0 while not computed yet.
++     */
++    private static long nextHalloweenStart = 0;
++
++    /**
++     * The next end of Halloween, given as milliseconds since the Unix epoch.
++     * Will be 0 while not computed yet.
++     */
++    private static long nextHalloweenEnd = 0;
++    // Gale end - predict Halloween
++
+     public static MonthDay dayNow() {
+         return MonthDay.from(ZonedDateTime.now());
+     }
+ 
+     public static boolean isHalloween() {
+-        return HALLOWEEN.equals(dayNow());
++        // Gale start - predict Halloween
++        long currentEpochMillis = System.currentTimeMillis();
++
++        // Update predicate
++        if (nextHalloweenEnd == 0 || currentEpochMillis >= nextHalloweenEnd) {
++            java.time.OffsetDateTime currentDate = java.time.OffsetDateTime.ofInstant(java.time.Instant.ofEpochMilli(currentEpochMillis), java.time.ZoneId.systemDefault())
++                .withHour(0).withMinute(0).withSecond(0).withNano(0); // Adjust to directly start or end at zero o'clock
++
++            java.time.OffsetDateTime thisHalloweenStart = currentDate.withMonth(halloweenMonthOfYear).withDayOfMonth(halloweenDayOfMonth);
++            java.time.OffsetDateTime thisHalloweenEnd = thisHalloweenStart.plusDays(1);
++
++            // Move to next year date if current passed
++            if (!currentDate.isBefore(thisHalloweenEnd)) {
++                thisHalloweenStart = thisHalloweenStart.plusYears(1);
++                thisHalloweenEnd = thisHalloweenEnd.plusYears(1);
++            }
++
++            nextHalloweenStart = thisHalloweenStart.toInstant().toEpochMilli();
++            nextHalloweenEnd = thisHalloweenEnd.toInstant().toEpochMilli();
++        }
++
++        return currentEpochMillis >= nextHalloweenStart && currentEpochMillis < nextHalloweenEnd;
++        // Gale end - predict Halloween
+     }
+ 
+     public static boolean isExtendedChristmas() {
+diff --git a/net/minecraft/util/ZeroBitStorage.java b/net/minecraft/util/ZeroBitStorage.java
+index 6111ecdfaac7c003859040d49d91cc7413ad9482..50bf80cb232f35cf91c0948a6a21731a95533857 100644
+--- a/net/minecraft/util/ZeroBitStorage.java
++++ b/net/minecraft/util/ZeroBitStorage.java
+@@ -5,7 +5,7 @@ import java.util.function.IntConsumer;
+ import org.apache.commons.lang3.Validate;
+ 
+ public class ZeroBitStorage implements BitStorage {
+-    public static final long[] RAW = new long[0];
++    public static final long[] RAW = me.titaniumtown.ArrayConstants.emptyLongArray; // Gale - JettPack - reduce array allocations
+     private final int size;
+ 
+     public ZeroBitStorage(final int size) {
+diff --git a/net/minecraft/world/entity/ConversionType.java b/net/minecraft/world/entity/ConversionType.java
+index e83bddd0ad8a64b0accdd7c7ffed33a3d91f5900..f3c19a8d7078e50d89f3d1fc3d1ffb842854972b 100644
+--- a/net/minecraft/world/entity/ConversionType.java
++++ b/net/minecraft/world/entity/ConversionType.java
+@@ -37,7 +37,7 @@ public enum ConversionType {
+             }
+ 
+             if (params.keepEquipment()) {
+-                for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++                for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+                     ItemStack itemStack = from.getItemBySlot(slot);
+                     if (!itemStack.isEmpty()) {
+                         to.setItemSlot(slot, itemStack.copyAndClear());
+diff --git a/net/minecraft/world/entity/Entity.java b/net/minecraft/world/entity/Entity.java
+index b1163513254724c1ef2dc29c220550f44c1b79f1..6cb0e125c1cff9099e286bf7f223322fe8a2d141 100644
+--- a/net/minecraft/world/entity/Entity.java
++++ b/net/minecraft/world/entity/Entity.java
+@@ -285,6 +285,7 @@ public abstract class Entity
+     public float yRotO;
+     public float xRotO;
+     private AABB bb = INITIAL_AABB;
++    private boolean boundingBoxChanged = false; // Gale - VMP - skip entity move if movement is zero
+     public boolean onGround;
+     public boolean horizontalCollision;
+     public boolean verticalCollision;
+@@ -564,17 +565,31 @@ public abstract class Entity
+     // Purpur end - Add canSaveToDisk to Entity
+ 
+     // Purpur start - copied from Mob - API for any mob to burn daylight
++    // Gale start - JettPack - optimize sun burn tick - cache eye blockpos
++    private BlockPos cached_eye_blockpos;
++    private Vec3 cached_position;
++    // Gale end - JettPack - optimize sun burn tick - cache eye blockpos
+     public boolean isSunBurnTick() {
+         if (!this.level().isClientSide() && this.level().environmentAttributes().getValue(EnvironmentAttributes.MONSTERS_BURN, this.position())) {
+-            float br = this.getLightLevelDependentMagicValue();
+-            BlockPos roundedPos = BlockPos.containing(this.getX(), this.getEyeY(), this.getZ());
+-            boolean isInNonBurnableBlock = this.isInWaterOrRain() || this.isInPowderSnow || this.wasInPowderSnow;
+-            if (br > 0.5F && this.random.nextFloat() * 30.0F < (br - 0.4F) * 2.0F && !isInNonBurnableBlock && this.level().canSeeSky(roundedPos)) {
+-                return true;
++            // Gale start - JettPack - optimize sun burn tick - optimizations and cache eye blockpos
++            if (this.cached_position != this.position) {
++                this.cached_eye_blockpos = BlockPos.containing(this.getX(), this.getEyeY(), this.getZ());
++                this.cached_position = this.position;
+             }
++
++            float lightLevelDependentMagicValue = this.getLightLevelDependentMagicValue(cached_eye_blockpos); // Pass BlockPos to getBrightness
++
++            // Check brightness first
++            if (lightLevelDependentMagicValue <= 0.5F) return false;
++            if (this.random.nextFloat() * 30.0F >= (lightLevelDependentMagicValue - 0.4F) * 2.0F) return false;
++            // Gale end - JettPack - optimize sun burn tick - optimizations and cache eye blockpos
++
++            boolean isInNonBurnableBlock = this.isInWaterOrRain() || this.isInPowderSnow || this.wasInPowderSnow;
++
++            return !isInNonBurnableBlock && this.level().canSeeSky(this.cached_eye_blockpos); // Gale - JettPack - optimize sun burn tick - optimizations and cache eye blockpos
+         }
+ 
+-        return false;
++        return false; // Gale - JettPack - optimize sun burn tick - optimizations and cache eye blockpos - diff on change
+     }
+     // Purpur end - copied from Mob - API for any mob to burn daylight
+ 
+@@ -975,7 +990,13 @@ public abstract class Entity
+ 
+         this.checkBelowWorld();
+         if (!this.level().isClientSide()) {
++            // Gale start - Slice - hide flames on entities with fire resistance
++            if (this instanceof net.minecraft.world.entity.LivingEntity livingEntity) {
++                this.setSharedFlagOnFire(this.remainingFireTicks > 0 && (!this.level.galeConfig().gameplayMechanics.hideFlamesOnEntitiesWithFireResistance || !livingEntity.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE)));
++            } else {
++            // Gale end - Slice - hide flames on entities with fire resistance
+             this.setSharedFlagOnFire(this.remainingFireTicks > 0);
++            } // Gale - Slice - hide flames on entities with fire resistance
+         }
+ 
+         this.firstTick = false;
+@@ -1144,7 +1165,7 @@ public abstract class Entity
+     public void setOnGroundWithMovement(final boolean onGround, final boolean horizontalCollision, final Vec3 movement) {
+         this.onGround = onGround;
+         this.horizontalCollision = horizontalCollision;
+-        this.checkSupportingBlock(onGround, movement);
++        this.checkSupportingBlock(onGround, movement); // Gale - VMP - skip entity move if movement is zero - diff on change
+     }
+ 
+     public boolean isSupportedBy(final BlockPos pos) {
+@@ -1242,6 +1263,20 @@ public abstract class Entity
+             }
+             // Paper end
+ 
++            // Gale start - VMP - skip entity move if movement is zero
++            if (!this.boundingBoxChanged && delta.x == 0.0D && delta.y == 0.0D && delta.z == 0.0D) {
++                // Reset state flags and use setOnGroundWithMovement,
++                // to update the value for the Entity#isOnGround API
++                this.horizontalCollision = false;
++                this.verticalCollision = false;
++                this.verticalCollisionBelow = false;
++                this.minorHorizontalCollision = false;
++                this.setOnGroundWithMovement(false, false, Vec3.ZERO);
++                profiler.pop();
++                return;
++            }
++            this.boundingBoxChanged = false;
++            // Gale end - VMP - skip entity move if movement is zero
+             delta = this.maybeBackOffFromEdge(delta, moverType);
+             Vec3 movement = this.collide(delta);
+             double movementLength = movement.lengthSqr();
+@@ -1272,7 +1307,7 @@ public abstract class Entity
+             if (movedVertically || this.isLocalInstanceAuthoritative()) {
+                 this.verticalCollision = delta.y != movement.y;
+                 this.verticalCollisionBelow = this.verticalCollision && delta.y < 0.0;
+-                this.setOnGroundWithMovement(this.verticalCollisionBelow, this.horizontalCollision, movement);
++                this.setOnGroundWithMovement(this.verticalCollisionBelow, this.horizontalCollision, movement); // Gale - VMP - skip entity move if movement is zero - diff on change
+             }
+ 
+             if (this.horizontalCollision) {
+@@ -1322,8 +1357,15 @@ public abstract class Entity
+                     }
+                 }
+ 
+-                float blockSpeedFactor = this.getBlockSpeedFactor();
+-                this.setDeltaMovement(this.getDeltaMovement().multiply(blockSpeedFactor, 1.0, blockSpeedFactor));
++                // Gale start - skip negligible planar movement multiplication
++                Vec3 oldDeltaMovement = this.getDeltaMovement();
++                if (oldDeltaMovement.x < -1e-6 || oldDeltaMovement.x > 1e-6 || oldDeltaMovement.z < -1e-6 || oldDeltaMovement.z > 1e-6) {
++                    float blockSpeedFactor = this.getBlockSpeedFactor();
++                    if (blockSpeedFactor < 1 - 1e-6 || blockSpeedFactor > 1 + 1e-6) {
++                        this.setDeltaMovement(oldDeltaMovement.multiply(blockSpeedFactor, 1.0, blockSpeedFactor));
++                    }
++                }
++                // Gale end - skip negligible planar movement multiplication
+                 profiler.pop();
+             }
+         }
+@@ -2364,10 +2406,19 @@ public abstract class Entity
+ 
+     @Deprecated
+     public float getLightLevelDependentMagicValue() {
++        // Gale start - JettPack - optimize sun burn tick - allow passing BlockPos to getLightLevelDependentMagicValue
++        return this.getLightLevelDependentMagicValue(BlockPos.containing(this.getX(), this.getEyeY(), this.getZ()));
++    }
++    /**
++     * @deprecated
++     */
++    @Deprecated
++    public float getLightLevelDependentMagicValue(BlockPos pos) {
+         return this.level().hasChunkAt(this.getBlockX(), this.getBlockZ())
+-            ? this.level().getLightLevelDependentMagicValue(BlockPos.containing(this.getX(), this.getEyeY(), this.getZ()))
++            ? this.level.getLightLevelDependentMagicValue(pos)
+             : 0.0F;
+     }
++    // Gale end - JettPack - optimize sun burn tick - allow passing BlockPos to getLightLevelDependentMagicValue
+ 
+     public void absSnapTo(final double x, final double y, final double z, final float yRot, final float xRot) {
+         this.absSnapTo(x, y, z);
+@@ -2479,8 +2530,8 @@ public abstract class Entity
+     }
+ 
+     public void push(final Entity entity) {
++        if (!entity.noPhysics && !this.noPhysics) { // Gale - Akarin - collision physics check before vehicle check
+         if (!this.isPassengerOfSameVehicle(entity)) {
+-            if (!entity.noPhysics && !this.noPhysics) {
+                 if (this.level.paperConfig().collisions.onlyPlayersCollide && !(entity instanceof ServerPlayer || this instanceof ServerPlayer)) return; // Paper - Collision option for requiring a player participant
+                 // Paper start - Add EntityCollideWithEntity Event
+                 if (io.papermc.paper.event.entity.EntityCollideWithEntityEvent.getHandlerList().getRegisteredListeners().length != 0 &&
+@@ -4794,6 +4845,20 @@ public abstract class Entity
+     }
+ 
+     public final void setBoundingBox(final AABB bb) {
++        // Gale start - VMP - skip entity move if movement is zero
++        if (!this.boundingBoxChanged) {
++            AABB current = this.bb;
++            if (current != bb && (
++                    current.minX != bb.minX ||
++                    current.minY != bb.minY ||
++                    current.minZ != bb.minZ ||
++                    current.maxX != bb.maxX ||
++                    current.maxY != bb.maxY ||
++                    current.maxZ != bb.maxZ)) {
++                this.boundingBoxChanged = true;
++            }
++        }
++        // Gale end - VMP - skip entity move if movement is zero
+         // CraftBukkit start - block invalid bounding boxes
+         double minX = bb.minX,
+                 minY = bb.minY,
+diff --git a/net/minecraft/world/entity/EquipmentSlot.java b/net/minecraft/world/entity/EquipmentSlot.java
+index ffb5f07697e9f1fb07f83ea4739c6b9d5a622892..63a9956f4aaf6feb6de2ef59a2211448f816e4fb 100644
+--- a/net/minecraft/world/entity/EquipmentSlot.java
++++ b/net/minecraft/world/entity/EquipmentSlot.java
+@@ -20,6 +20,7 @@ public enum EquipmentSlot implements StringRepresentable {
+     SADDLE(EquipmentSlot.Type.SADDLE, 0, 1, 7, "saddle");
+ 
+     public static final int NO_COUNT_LIMIT = 0;
++    public static final EquipmentSlot[] VALUES_ARRAY = values(); // Gale - JettPack - reduce array allocations
+     public static final List<EquipmentSlot> VALUES = List.of(values());
+     public static final IntFunction<EquipmentSlot> BY_ID = ByIdMap.continuous(s -> s.id, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
+     public static final StringRepresentable.EnumCodec<EquipmentSlot> CODEC = StringRepresentable.fromEnum(EquipmentSlot::values);
+diff --git a/net/minecraft/world/entity/EquipmentSlotGroup.java b/net/minecraft/world/entity/EquipmentSlotGroup.java
+index e9b1290f24ba30663110abc61310d0a1e784e5a1..0112c19b99c62dde19af1009030c1645297163d9 100644
+--- a/net/minecraft/world/entity/EquipmentSlotGroup.java
++++ b/net/minecraft/world/entity/EquipmentSlotGroup.java
+@@ -24,6 +24,7 @@ public enum EquipmentSlotGroup implements StringRepresentable, Iterable<Equipmen
+     BODY(9, "body", EquipmentSlot.BODY),
+     SADDLE(10, "saddle", EquipmentSlot.SADDLE);
+ 
++    public static final EquipmentSlotGroup[] VALUES_ARRAY = EquipmentSlotGroup.values(); // Gale - JettPack - reduce array allocations
+     public static final IntFunction<EquipmentSlotGroup> BY_ID = ByIdMap.continuous(s -> s.id, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
+     public static final Codec<EquipmentSlotGroup> CODEC = StringRepresentable.fromEnum(EquipmentSlotGroup::values);
+     public static final StreamCodec<ByteBuf, EquipmentSlotGroup> STREAM_CODEC = ByteBufCodecs.idMapper(BY_ID, s -> s.id);
+diff --git a/net/minecraft/world/entity/EquipmentTable.java b/net/minecraft/world/entity/EquipmentTable.java
+index 4b018c64d3123bb7a0687491d2ac3a535302890c..0e4d6c9a35d29c240a0cf30694211ea3db66895c 100644
+--- a/net/minecraft/world/entity/EquipmentTable.java
++++ b/net/minecraft/world/entity/EquipmentTable.java
+@@ -35,7 +35,7 @@ public record EquipmentTable(ResourceKey<LootTable> lootTable, Map<EquipmentSlot
+     }
+ 
+     private static Map<EquipmentSlot, Float> createForAllSlots(final float dropChance) {
+-        return createForAllSlots(List.of(EquipmentSlot.values()), dropChance);
++        return createForAllSlots(List.of(EquipmentSlot.VALUES_ARRAY), dropChance); // Gale - JettPack - reduce array allocations
+     }
+ 
+     private static Map<EquipmentSlot, Float> createForAllSlots(final List<EquipmentSlot> slots, final float dropChance) {
+diff --git a/net/minecraft/world/entity/LivingEntity.java b/net/minecraft/world/entity/LivingEntity.java
+index f80244f85caf3f4796256a14893d9dad270f292d..21f9dcd977fc0c4bf468e53afbb5b9ee92d5e5f9 100644
+--- a/net/minecraft/world/entity/LivingEntity.java
++++ b/net/minecraft/world/entity/LivingEntity.java
+@@ -461,7 +461,10 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+         profiler.push("livingEntityBaseTick");
+         if (this.isAlive() && this.level() instanceof ServerLevel level) {
+             boolean isPlayer = this instanceof Player;
+-            if (this.isInWall()) {
++            // Gale start - Pufferfish - reduce in wall checks
++            long checkStuckInWallInterval = this.level().galeConfig().smallOptimizations.reducedIntervals.checkStuckInWall;
++            if ((checkStuckInWallInterval <= 1 || (tickCount % checkStuckInWallInterval == 0 && couldPossiblyBeHurt(1.0F))) && this.isInWall()) {
++                // Gale end - Pufferfish - reduce in wall checks
+                 this.hurtServer(level, this.damageSources().inWall(), 1.0F);
+             } else if (isPlayer && !level.getWorldBorder().isWithinBounds(this.getBoundingBox())) {
+                 double dist = level.getWorldBorder().getDistanceToBorder(this) + level.getWorldBorder().getSafeZone();
+@@ -573,10 +576,9 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+     }
+ 
+     protected void tryAddFrost() {
+-        if (!this.getBlockStateOnLegacy().isAir()) {
+             int ticksFrozen = this.getTicksFrozen();
+             if (ticksFrozen > 0) {
+-                AttributeInstance speed = this.getAttribute(Attributes.MOVEMENT_SPEED);
++                AttributeInstance speed = this.getBlockStateOnLegacy().isAir() ? null : this.getAttribute(Attributes.MOVEMENT_SPEED); // Gale - Lithium - check frozen ticks before landing block
+                 if (speed == null) {
+                     return;
+                 }
+@@ -584,7 +586,6 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+                 float slowAmount = -0.05F * this.getPercentFrozen();
+                 speed.addTransientModifier(new AttributeModifier(SPEED_MODIFIER_POWDER_SNOW_ID, slowAmount, AttributeModifier.Operation.ADD_VALUE));
+             }
+-        }
+     }
+ 
+     protected void onChangedBlock(final ServerLevel level, final BlockPos pos) {
+@@ -1463,6 +1464,12 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+         return this.hurtTime > 0;
+     }
+ 
++    // Gale start - Pufferfish - reduce in wall checks
++    private boolean couldPossiblyBeHurt(float amount) {
++        return !((float) this.damageCooldownTime > (float) this.invulnerableDuration / 2.0F) || !(amount <= this.lastHurt);
++    }
++    // Gale end - Pufferfish - reduce in wall checks
++
+     @Override
+     public boolean hurtServer(final ServerLevel level, final DamageSource source, float damage) {
+         final boolean swift$held = io.papermc.paper.swift.async.SwiftAsync.lock(); try { // Swift - async entities: serialise shared-state writes
+@@ -3664,7 +3671,7 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+         Map<org.bukkit.inventory.EquipmentSlot, io.papermc.paper.event.entity.EntityEquipmentChangedEvent.EquipmentChange> equipmentChanges = null;
+         // Paper end - EntityEquipmentChangedEvent
+ 
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack previous = lastEquipmentItems.get(slot);
+             ItemStack current = this.getItemBySlot(slot);
+             if (this.equipmentHasChanged(previous, current)) {
+@@ -3996,7 +4003,7 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+ 
+     public boolean canGlide() {
+         if (!this.onGround() && !this.isPassenger() && !this.hasEffect(MobEffects.LEVITATION)) {
+-            for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++            for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+                 if (canGlideUsing(this.getItemBySlot(slot), slot)) {
+                     return true;
+                 }
+diff --git a/net/minecraft/world/entity/Mob.java b/net/minecraft/world/entity/Mob.java
+index 5514f4810f3653d5211368be341fd7985ebdc6e0..599cfbf06dd62fd19a77786ebe151f529e4b249a 100644
+--- a/net/minecraft/world/entity/Mob.java
++++ b/net/minecraft/world/entity/Mob.java
+@@ -397,7 +397,7 @@ public abstract class Mob extends LivingEntity implements Targeting, EquipmentUs
+         if (this.xpReward > 0) {
+             int result = this.xpReward;
+ 
+-            for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++            for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+                 if (slot.canIncreaseExperience()) {
+                     ItemStack item = this.getItemBySlot(slot);
+                     if (!item.isEmpty() && this.dropChances.byEquipment(slot) <= 1.0F) {
+@@ -691,7 +691,7 @@ public abstract class Mob extends LivingEntity implements Targeting, EquipmentUs
+     }
+ 
+     protected boolean attemptToShearEquipment(final Player player, final InteractionHand hand, final ItemStack heldItem) {
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack itemStack = this.getItemBySlot(slot);
+             Equippable equippable = itemStack.get(DataComponents.EQUIPPABLE);
+             if (equippable != null
+@@ -1088,7 +1088,7 @@ public abstract class Mob extends LivingEntity implements Targeting, EquipmentUs
+         super.dropCustomDeathLoot(level, source, killedByPlayer);
+ 
+         this.droppedEquipmentSlots.clear(); // Paper
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack itemStack = this.getItemBySlot(slot);
+             // Paper start
+             if (this.guaranteedToDropUndamaged(slot)) {
+@@ -1134,7 +1134,7 @@ public abstract class Mob extends LivingEntity implements Targeting, EquipmentUs
+     public Set<EquipmentSlot> dropPreservedEquipment(final ServerLevel level, final Predicate<ItemStack> shouldDrop) {
+         Set<EquipmentSlot> slotsPreventedFromDropping = new HashSet<>();
+ 
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack itemStack = this.getItemBySlot(slot);
+             if (!itemStack.isEmpty() && (this.deathDropItems == null || !this.droppedEquipmentSlots.contains(slot))) { // Paper - account for already dropped item in dropCustomDeathLoot to not duplicate loot
+                 if (!shouldDrop.test(itemStack)) {
+@@ -1268,7 +1268,7 @@ public abstract class Mob extends LivingEntity implements Targeting, EquipmentUs
+     protected void populateDefaultEquipmentEnchantments(final ServerLevelAccessor level, final RandomSource random, final DifficultyInstance localDifficulty) {
+         this.enchantSpawnedWeapon(level, random, localDifficulty);
+ 
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             if (slot.getType() == EquipmentSlot.Type.HUMANOID_ARMOR) {
+                 this.enchantSpawnedArmor(level, random, slot, localDifficulty);
+             }
+@@ -1698,7 +1698,7 @@ public abstract class Mob extends LivingEntity implements Targeting, EquipmentUs
+     protected void removeAfterChangingDimensions() {
+         super.removeAfterChangingDimensions();
+ 
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack itemStack = this.getItemBySlot(slot);
+             if (!itemStack.isEmpty()) {
+                 itemStack.setCount(0);
+diff --git a/net/minecraft/world/entity/ai/behavior/BehaviorUtils.java b/net/minecraft/world/entity/ai/behavior/BehaviorUtils.java
+index f744ecd20dc70786311a7162b52aa4ceca0717db..c50d6ac77cae556aaa7ce8f3f1dc3a706ccd9d31 100644
+--- a/net/minecraft/world/entity/ai/behavior/BehaviorUtils.java
++++ b/net/minecraft/world/entity/ai/behavior/BehaviorUtils.java
+@@ -101,7 +101,19 @@ public class BehaviorUtils {
+         Vec3 throwVector = targetPos.subtract(thrower.position());
+         throwVector = throwVector.normalize().multiply(throwVelocity.x, throwVelocity.y, throwVelocity.z);
+         itemEntity.setDeltaMovement(throwVector);
+-        itemEntity.setDefaultPickUpDelay();
++        // Gale start - EMC - reduce villager item re-pickup
++        if (thrower instanceof net.minecraft.world.entity.npc.villager.Villager) {
++            int repickupDelay = thrower.level().galeConfig().smallOptimizations.reducedIntervals.villagerItemRepickup;
++
++            if (repickupDelay <= -1) {
++                itemEntity.setDefaultPickUpDelay();
++            } else {
++                itemEntity.pickupDelay = repickupDelay;
++            }
++        } else {
++            itemEntity.setDefaultPickUpDelay();
++        }
++        // Gale end - EMC - reduce villager item re-pickup
+         // CraftBukkit start
+         org.bukkit.event.entity.EntityDropItemEvent event = new org.bukkit.event.entity.EntityDropItemEvent(thrower.getBukkitEntity(), (org.bukkit.entity.Item) itemEntity.getBukkitEntity());
+         itemEntity.level().getCraftServer().getPluginManager().callEvent(event);
+diff --git a/net/minecraft/world/entity/ai/goal/RandomStrollGoal.java b/net/minecraft/world/entity/ai/goal/RandomStrollGoal.java
+index 7e4fb5bb4e1df8e09ad7b08ca482ce44a47d0b28..bc8fdce935f26c4ddb5c1b7e95e6317816fb9e88 100644
+--- a/net/minecraft/world/entity/ai/goal/RandomStrollGoal.java
++++ b/net/minecraft/world/entity/ai/goal/RandomStrollGoal.java
+@@ -50,7 +50,7 @@ public class RandomStrollGoal extends Goal {
+         }
+ 
+         Vec3 pos = this.getPosition();
+-        if (pos == null) {
++        if (pos == null || (!this.mob.level().galeConfig().gameplayMechanics.entitiesCanRandomStrollIntoNonTickingChunks && !((net.minecraft.server.level.ServerLevel) this.mob.level()).isPositionEntityTicking(net.minecraft.core.BlockPos.containing(pos)))) { // Gale - MultiPaper - prevent entities random strolling into non-ticking chunks
+             return false;
+         }
+ 
+diff --git a/net/minecraft/world/entity/ai/goal/RangedBowAttackGoal.java b/net/minecraft/world/entity/ai/goal/RangedBowAttackGoal.java
+index 50f12f2581267827c394134cd51a09016a5fa2b0..1b2edb6ebf41041bf1d3aabcfe8ea348c0dcd469 100644
+--- a/net/minecraft/world/entity/ai/goal/RangedBowAttackGoal.java
++++ b/net/minecraft/world/entity/ai/goal/RangedBowAttackGoal.java
+@@ -103,7 +103,10 @@ public class RangedBowAttackGoal<T extends Monster & RangedAttackMob> extends Go
+                 this.strafingTime = 0;
+             }
+ 
+-            if (this.strafingTime > -1) {
++            // Gale start - Purpur - fix MC-121706
++            boolean hasStrafingTime = this.strafingTime > -1;
++            if (hasStrafingTime) {
++                // Gale end - Purpur - fix MC-121706
+                 if (targetDistSqr > this.attackRadiusSqr * 0.75F) {
+                     this.strafingBackwards = false;
+                 } else if (targetDistSqr < this.attackRadiusSqr * 0.25F) {
+@@ -116,7 +119,10 @@ public class RangedBowAttackGoal<T extends Monster & RangedAttackMob> extends Go
+                 }
+ 
+                 this.mob.lookAt(target, 30.0F, 30.0F);
+-            } else {
++                // Gale start - Purpur - fix MC-121706
++            }
++            if (!hasStrafingTime || this.mob.level().galeConfig().gameplayMechanics.fixes.mc121706) {
++                // Gale end - Purpur - fix MC-121706
+                 this.mob.getLookControl().setLookAt(target, 30.0F, 30.0F);
+             }
+ 
+diff --git a/net/minecraft/world/entity/ai/sensing/SecondaryPoiSensor.java b/net/minecraft/world/entity/ai/sensing/SecondaryPoiSensor.java
+index 1da9f1cdb2ee8b1514c79fee24460f852b6a3577..3c0b272ae11df3b2f929a55497278bd9bad51422 100644
+--- a/net/minecraft/world/entity/ai/sensing/SecondaryPoiSensor.java
++++ b/net/minecraft/world/entity/ai/sensing/SecondaryPoiSensor.java
+@@ -24,7 +24,10 @@ public class SecondaryPoiSensor extends Sensor<Villager> {
+     protected void doTick(final ServerLevel level, final Villager body) {
+         // Purpur start - Option for Villager Clerics to farm Nether Wart - make sure clerics don't wander to soul sand when the option is off
+         Brain<?> brain = body.getBrain();
+-        if (!level.purpurConfig.villagerClericsFarmWarts && body.getVillagerData().profession().is(net.minecraft.world.entity.npc.villager.VillagerProfession.CLERIC)) {
++        // Gale start - Lithium - skip secondary POI sensor if absent
++        var secondaryPoi = body.getVillagerData().profession().value().secondaryPoi();
++        if (secondaryPoi.isEmpty() || (!level.purpurConfig.villagerClericsFarmWarts && body.getVillagerData().profession().is(net.minecraft.world.entity.npc.villager.VillagerProfession.CLERIC))) {
++            // Gale end - Lithium - skip secondary POI sensor if absent
+             brain.eraseMemory(MemoryModuleType.SECONDARY_JOB_SITE);
+             return;
+         }
+@@ -39,7 +42,7 @@ public class SecondaryPoiSensor extends Sensor<Villager> {
+             for (int y = -2; y <= 2; y++) {
+                 for (int z = -4; z <= 4; z++) {
+                     BlockPos testPos = center.offset(x, y, z);
+-                    if (body.getVillagerData().profession().value().secondaryPoi().contains(level.getBlockState(testPos).getBlock())) {
++                    if (secondaryPoi.contains(level.getBlockState(testPos).getBlock())) { // Gale - Lithium - skip secondary POI sensor if absent
+                         jobSites.add(GlobalPos.of(dimensionType, testPos));
+                     }
+                 }
+diff --git a/net/minecraft/world/entity/ai/sensing/Sensing.java b/net/minecraft/world/entity/ai/sensing/Sensing.java
+index 0da4d7d500e4297457081b4c83862296c9b92e72..be7b5d1b671aaa60d190b649ebd9086f6b3ff9b3 100644
+--- a/net/minecraft/world/entity/ai/sensing/Sensing.java
++++ b/net/minecraft/world/entity/ai/sensing/Sensing.java
+@@ -9,25 +9,66 @@ import net.minecraft.world.entity.Mob;
+ 
+ public class Sensing {
+     private final Mob mob;
+-    private final IntSet seen = new IntOpenHashSet();
+-    private final IntSet unseen = new IntOpenHashSet();
++    private final it.unimi.dsi.fastutil.ints.Int2IntMap seen = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap(2); // Gale end - initialize line of sight cache with low capacity // Gale - Petal - reduce line of sight cache lookups - merge sets
++
++    // Gale start - Petal - reduce line of sight updates - expiring entity id lists
++    private final it.unimi.dsi.fastutil.ints.IntList @org.jspecify.annotations.Nullable [] expiring;
++    private int currentCacheAddIndex = 0;
++    private int nextToExpireIndex = 1;
++    // Gale end - Petal - reduce line of sight updates - expiring entity id lists
+ 
+     public Sensing(final Mob mob) {
+         this.mob = mob;
++        // Gale start - Petal - reduce line of sight updates - expiring entity id lists
++        int updateLineOfSightInterval = org.galemc.gale.configuration.GaleGlobalConfiguration.get().smallOptimizations.reducedIntervals.updateEntityLineOfSight;
++        if (updateLineOfSightInterval <= 1) {
++            this.expiring = null;
++        } else {
++            this.expiring = new it.unimi.dsi.fastutil.ints.IntList[updateLineOfSightInterval];
++
++            for (int i = 0; i < updateLineOfSightInterval; i++) {
++                this.expiring[i] = new it.unimi.dsi.fastutil.ints.IntArrayList(0);
++            }
++        }
++        // Gale end - Petal - reduce line of sight updates - expiring entity id lists
+     }
+ 
+     public void tick() {
++        if (this.expiring == null) { // Gale - Petal - reduce line of sight updates
+         this.seen.clear();
+-        this.unseen.clear();
++            // Gale start - Petal - reduce line of sight updates
++        } else {
++            var expiringNow = this.expiring[this.nextToExpireIndex];
++
++            expiringNow.forEach(this.seen::remove);
++            expiringNow.clear();
++
++            this.currentCacheAddIndex++;
++
++            if (this.currentCacheAddIndex == this.expiring.length) {
++                this.currentCacheAddIndex = 0;
++            }
++
++            this.nextToExpireIndex++;
++
++            if (this.nextToExpireIndex == this.expiring.length) {
++                this.nextToExpireIndex = 0;
++            }
++        }
++        // Gale end - Petal - reduce line of sight updates
+     }
+ 
+     public boolean hasLineOfSight(final Entity target) {
+         int targetId = target.getId();
+-        if (this.seen.contains(targetId)) {
++        // Gale start - Petal - reduce line of sight cache lookups - merge sets
++        int cached = this.seen.get(targetId);
++
++        if (cached == 1) {
++            // Gale end - Petal - reduce line of sight cache lookups - merge sets
+             return true;
+         }
+ 
+-        if (this.unseen.contains(targetId)) {
++        if (cached == 2) { // Gale - Petal - reduce line of sight cache lookups - merge sets
+             return false;
+         }
+ 
+@@ -36,10 +77,16 @@ public class Sensing {
+         boolean hasLineOfSight = this.mob.hasLineOfSight(target);
+         profiler.pop();
+         if (hasLineOfSight) {
+-            this.seen.add(targetId);
++            this.seen.put(targetId, 1); // Gale - Petal - reduce line of sight cache lookups - merge sets
+         } else {
+-            this.unseen.add(targetId);
++            this.seen.put(targetId, 2); // Gale - Petal - reduce line of sight cache lookups - merge sets
++        }
++
++        // Gale start - Petal - reduce line of sight updates
++        if (this.expiring != null) {
++            this.expiring[this.currentCacheAddIndex].add(targetId);
+         }
++        // Gale end - Petal - reduce line of sight updates
+ 
+         return hasLineOfSight;
+     }
+diff --git a/net/minecraft/world/entity/ai/targeting/TargetingConditions.java b/net/minecraft/world/entity/ai/targeting/TargetingConditions.java
+index 933c894f63aa16f447d8fe094cd378b8c6d89cde..0c4a073c7ece5c1570799fd40dd09a23178c444c 100644
+--- a/net/minecraft/world/entity/ai/targeting/TargetingConditions.java
++++ b/net/minecraft/world/entity/ai/targeting/TargetingConditions.java
+@@ -93,9 +93,18 @@ public class TargetingConditions {
+             }
+ 
+             if (this.range > 0.0) {
+-                double modifier = this.testInvisible ? target.getVisibilityPercent(level, targeter) : 1.0;
+-                double visibilityDistance = Math.max(this.range * modifier, 2.0);
+                 double distanceToSqr = targeter.distanceToSqr(target.getX(), target.getY(), target.getZ());
++                // Gale start - Airplane - check targeting range before getting visibility
++                double followRangeRaw = this.range;
++                // Visibility is clamped to 10 in 26.3; retain the minimum targeting distance as well.
++                double maximumVisibilityDistance = Math.max(followRangeRaw * (this.testInvisible ? net.minecraft.world.item.component.MobVisibility.MAX_VISIBILITY : 1.0), 2.0);
++                if (distanceToSqr > maximumVisibilityDistance * maximumVisibilityDistance) {
++                    return false;
++                }
++
++                double modifier = this.testInvisible ? target.getVisibilityPercent(level, targeter) : 1.0;
++                double visibilityDistance = Math.max(followRangeRaw * modifier, 2.0);
++                // Gale end - Airplane - check targeting range before getting visibility
+                 if (distanceToSqr > visibilityDistance * visibilityDistance) {
+                     return false;
+                 }
+diff --git a/net/minecraft/world/entity/animal/fish/WaterAnimal.java b/net/minecraft/world/entity/animal/fish/WaterAnimal.java
+index 9d42eeaa1d2fcfad986a1d3ae3392bff4de5eab7..9bbeb92efe6eae57114792578c935242b4fd753f 100644
+--- a/net/minecraft/world/entity/animal/fish/WaterAnimal.java
++++ b/net/minecraft/world/entity/animal/fish/WaterAnimal.java
+@@ -80,8 +80,11 @@ public abstract class WaterAnimal extends PathfinderMob {
+         seaLevel = level.getMinecraftWorld().paperConfig().entities.spawning.wateranimalSpawnHeight.maximum.or(seaLevel);
+         minSpawnLevel = level.getMinecraftWorld().paperConfig().entities.spawning.wateranimalSpawnHeight.minimum.or(minSpawnLevel);
+         // Paper end - Make water animal spawn height configurable
+-        return pos.getY() >= minSpawnLevel
+-            && pos.getY() <= seaLevel
++        // Gale start - Purpur - fix MC-238526
++        boolean shouldFixMC238526 = spawnReason == EntitySpawnReason.SPAWNER && level.getMinecraftWorld().galeConfig().gameplayMechanics.fixes.mc238526;
++        boolean isAllowedHeight = pos.getY() >= minSpawnLevel && pos.getY() <= seaLevel;
++        return (shouldFixMC238526 || isAllowedHeight)
++            // Gale end - Purpur - fix MC-238526
+             && level.getFluidState(pos.below()).is(FluidTags.WATER)
+             && level.getBlockState(pos.above()).is(Blocks.WATER);
+     }
+diff --git a/net/minecraft/world/entity/decoration/ArmorStand.java b/net/minecraft/world/entity/decoration/ArmorStand.java
+index 680a82a8bace4d264b94b713b7d8e7b883821dd5..dc5332d5daba2533a3acdccaacb64a27e8ec30d9 100644
+--- a/net/minecraft/world/entity/decoration/ArmorStand.java
++++ b/net/minecraft/world/entity/decoration/ArmorStand.java
+@@ -488,7 +488,7 @@ public class ArmorStand extends LivingEntity {
+         if (this.deathDropItems == null) this.deathDropItems = new java.util.ArrayList<>(); // Paper
+         this.dropAllDeathLoot(level, source);
+ 
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             this.postDeathEventTasks.add(() -> this.equipment.set(slot, ItemStack.EMPTY)); // Paper - move equipment removal past event call
+             ItemStack itemStack = this.equipment.get(slot); // Paper
+             if (!itemStack.isEmpty() && !EnchantmentHelper.has(itemStack, EnchantmentEffectComponents.PREVENT_EQUIPMENT_DROP)) {
+diff --git a/net/minecraft/world/entity/player/Player.java b/net/minecraft/world/entity/player/Player.java
+index 18847eb37d53ce01397b03cbcf8a22d2cd7df771..2b4914ff356655a6b5b3d17f4f545b32ebebea24 100644
+--- a/net/minecraft/world/entity/player/Player.java
++++ b/net/minecraft/world/entity/player/Player.java
+@@ -208,9 +208,12 @@ public abstract class Player extends Avatar implements ContainerUser {
+     }
+     // Purpur end - Ridables
+ 
++    public final int sendAllPlayerInfoBucketIndex; // Gale - Purpur - spread out sending all player info
++
+     public Player(final Level level, final GameProfile gameProfile) {
+         super(EntityTypes.PLAYER, level);
+         this.setUUID(gameProfile.id());
++        this.sendAllPlayerInfoBucketIndex = Math.floorMod(this.uuid.hashCode(), net.minecraft.server.players.PlayerList.SEND_PLAYER_INFO_INTERVAL); // Gale - Purpur - spread out sending all player info
+         this.gameProfile = gameProfile;
+         this.inventory = new Inventory(this, this.equipment);
+         this.inventoryMenu = new InventoryMenu(this.inventory, !level.isClientSide(), this);
+@@ -386,7 +389,7 @@ public abstract class Player extends Avatar implements ContainerUser {
+     }
+ 
+     private boolean isEquipped(final Item item) {
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack itemStack = this.getItemBySlot(slot);
+             Equippable equippable = itemStack.get(DataComponents.EQUIPPABLE);
+             if (itemStack.is(item) && equippable != null && equippable.slot() == slot) {
+diff --git a/net/minecraft/world/entity/projectile/FireworkRocketEntity.java b/net/minecraft/world/entity/projectile/FireworkRocketEntity.java
+index 5b61c20fcac6825a1891c674870f40074eff22d3..6d0519ea31c20ad37ae9985b6164b96eb2bd1c47 100644
+--- a/net/minecraft/world/entity/projectile/FireworkRocketEntity.java
++++ b/net/minecraft/world/entity/projectile/FireworkRocketEntity.java
+@@ -350,4 +350,11 @@ public class FireworkRocketEntity extends Projectile implements ItemSupplier {
+         double dz = hurtEntity.position().z - this.position().z;
+         return DoubleDoubleImmutablePair.of(dx, dz);
+     }
++
++    // Gale start - EMC - make saving fireworks configurable
++    @Override
++    public boolean shouldBeSaved() {
++        return this.level().galeConfig().smallOptimizations.saveFireworks && super.shouldBeSaved();
++    }
++    // Gale end - EMC - make saving fireworks configurable
+ }
+diff --git a/net/minecraft/world/entity/projectile/Projectile.java b/net/minecraft/world/entity/projectile/Projectile.java
+index 2733e28bb5a2dedf82362e78227fa262db84d83e..923b7bdc87dbcd333a00845de3cd0c6d2986ccd8 100644
+--- a/net/minecraft/world/entity/projectile/Projectile.java
++++ b/net/minecraft/world/entity/projectile/Projectile.java
+@@ -77,6 +77,55 @@ public abstract class Projectile extends Entity implements TraceableEntity {
+         }
+     }
+ 
++    // Gale start - Airplane - reduce projectile chunk loading
++    private static int chunksLoadedThisTick = 0;
++    private static int chunksLoadedInTick;
++    private int chunksLoadedByProjectile = 0;
++
++    @Override
++    public void setPos(double x, double y, double z) {
++        int currentTick = net.minecraft.server.MinecraftServer.currentTick;
++
++        if (chunksLoadedInTick != currentTick) {
++            chunksLoadedInTick = currentTick;
++            chunksLoadedThisTick = 0;
++        }
++
++        int previousX = Mth.floor(this.getX()) >> 4, previousZ = Mth.floor(this.getZ()) >> 4;
++        int newX = Mth.floor(x) >> 4, newZ = Mth.floor(z) >> 4;
++
++        if (previousX != newX || previousZ != newZ) {
++            boolean isLoaded = ((net.minecraft.server.level.ServerChunkCache) this.level().getChunkSource()).getChunkAtIfLoadedImmediately(newX, newZ) != null;
++
++            if (!isLoaded) {
++                var maxProjectileChunkLoadsConfig = this.level().galeConfig().smallOptimizations.maxProjectileChunkLoads;
++                int maxChunkLoadsPerTick = maxProjectileChunkLoadsConfig.perTick;
++
++                if (maxChunkLoadsPerTick >= 0 && chunksLoadedThisTick > maxChunkLoadsPerTick) {
++                    return;
++                }
++
++                int maxChunkLoadsPerProjectile = maxProjectileChunkLoadsConfig.perProjectile.max;
++
++                if (maxChunkLoadsPerProjectile >= 0 && this.chunksLoadedByProjectile >= maxChunkLoadsPerProjectile) {
++                    if (maxProjectileChunkLoadsConfig.perProjectile.removeFromWorldAfterReachLimit) {
++                        this.discard();
++                    } else if (maxProjectileChunkLoadsConfig.perProjectile.resetMovementAfterReachLimit) {
++                        this.setDeltaMovement(0, this.getDeltaMovement().y, 0);
++                    }
++
++                    return;
++                }
++
++                chunksLoadedThisTick++;
++                this.chunksLoadedByProjectile++;
++            }
++        }
++
++        super.setPos(x, y, z);
++    }
++    // Gale end - Airplane - reduce projectile chunk loading
++
+     protected void setOwner(final @Nullable EntityReference<Entity> owner) {
+         this.owner = owner;
+     }
+diff --git a/net/minecraft/world/entity/raid/Raid.java b/net/minecraft/world/entity/raid/Raid.java
+index 9291ff895d25ed93fcf56d8d727e81e9ab6428ce..185559a9bcc0be2a1c33aa2c9f8c5466d4802423 100644
+--- a/net/minecraft/world/entity/raid/Raid.java
++++ b/net/minecraft/world/entity/raid/Raid.java
+@@ -124,14 +124,15 @@ public class Raid {
+     private int groupsSpawned;
+     private int postRaidTicks;
+     private int raidCooldownTicks;
+-    private final RandomSource random = RandomSource.create();
++    //private final RandomSource random = RandomSource.create(); // Gale - Patina - reduce RandomSource instances
+     public final ServerBossEvent raidEvent = new ServerBossEvent(
+-        Mth.createInsecureUUID(this.random), RAID_NAME_COMPONENT, BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10
++        Mth.createInsecureUUID(RandomSource.create()), RAID_NAME_COMPONENT, BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10 // Gale - Patina - reduce RandomSource instances
+     );
+     public int numGroups;
+     private Raid.RaidStatus status;
+     private int celebrationTicks;
+     private Optional<BlockPos> waveSpawnPos = Optional.empty();
++    private boolean isBarDirty; // Gale - Lithium - update boss bar within tick
+ 
+     public Raid(final BlockPos center, final Difficulty difficulty) {
+         this.active = true;
+@@ -284,6 +285,12 @@ public class Raid {
+     }
+ 
+     public void tick(final ServerLevel level) {
++        // Gale start - Lithium - update boss bar within tick
++        if (this.isBarDirty) {
++            this.updateBossbarInternal();
++            this.isBarDirty = false;
++        }
++        // Gale end - Lithium - update boss bar within tick
+         if (!this.isStopped()) {
+             if (this.status == Raid.RaidStatus.ONGOING) {
+                 boolean oldActive = this.active;
+@@ -530,7 +537,7 @@ public class Raid {
+         float distAway = 13.0F;
+         int range = 64;
+         Collection<ServerPlayer> playersInRaid = this.raidEvent.getPlayers();
+-        long seed = this.random.nextLong();
++        long seed = level.getRandom().nextLong(); // Gale - Patina - reduce RandomSource instances
+ 
+         for (ServerPlayer player : level.players()) {
+             Vec3 playerLoc = player.position();
+@@ -554,7 +561,7 @@ public class Raid {
+         for (Raid.RaiderType raiderType : Raid.RaiderType.VALUES) {
+             if (!level.purpurConfig.illusionerSpawnInRaids && raiderType == Raid.RaiderType.ILLUSIONER) continue; // Purpur - Ability for Illusioners to spawn during raids
+             int numSpawns = this.getDefaultNumSpawns(raiderType, groupNumber, isBonusGroup)
+-                + this.getPotentialBonusSpawns(raiderType, this.random, groupNumber, difficulty, isBonusGroup);
++                + this.getPotentialBonusSpawns(raiderType, level.getRandom(), groupNumber, difficulty, isBonusGroup); // Gale - Patina - reduce RandomSource instances
+             int ravagersSpawned = 0;
+ 
+             for (int i = 0; i < numSpawns; i++) {
+@@ -576,7 +583,7 @@ public class Raid {
+                         ridingRaider = EntityTypes.PILLAGER.create(level, EntitySpawnReason.EVENT);
+                     } else if (groupNumber >= this.getNumGroups(Difficulty.HARD)) {
+                         if (ravagersSpawned == 0) {
+-                            ridingRaider = (level.purpurConfig.illusionerSpawnInRaids && random.nextBoolean() ? EntityTypes.ILLUSIONER : EntityTypes.EVOKER).create(level, EntitySpawnReason.EVENT); // Purpur - Ability for Illusioners to spawn during raids
++                            ridingRaider = (level.purpurConfig.illusionerSpawnInRaids && level.getRandom().nextBoolean() ? EntityTypes.ILLUSIONER : EntityTypes.EVOKER).create(level, EntitySpawnReason.EVENT); // Purpur - Ability for Illusioners to spawn during raids // Gale - Patina - reduce RandomSource instances
+                         } else {
+                             ridingRaider = EntityTypes.VINDICATOR.create(level, EntitySpawnReason.EVENT);
+                         }
+@@ -617,6 +624,11 @@ public class Raid {
+     }
+ 
+     public void updateBossbar() {
++        // Gale start - Lithium - update boss bar within tick
++        this.isBarDirty = true;
++    }
++    private void updateBossbarInternal() {
++        // Gale end - Lithium - update boss bar within tick
+         this.raidEvent.setProgress(Mth.clamp(this.getHealthOfLivingRaiders() / this.totalHealth, 0.0F, 1.0F));
+     }
+ 
+@@ -695,12 +707,13 @@ public class Raid {
+         int secondsRemaining = this.raidCooldownTicks / 20;
+         float howFar = 0.22F * secondsRemaining - 0.24F;
+         BlockPos.MutableBlockPos spawnPos = new BlockPos.MutableBlockPos();
+-        float startAngle = this.random.nextFloat() * (float) (Math.PI * 2);
++        RandomSource random = level.getRandom();
++        float startAngle = random.nextFloat() * (float) (Math.PI * 2); // Gale - Patina - reduce RandomSource instances
+ 
+         for (int i = 0; i < maxTries; i++) {
+             float angle = startAngle + (float) Math.PI * i / 8.0F;
+-            int spawnX = this.center.getX() + Mth.floor(Mth.cos(angle) * 32.0F * howFar) + this.random.nextInt(3) * Mth.floor(howFar);
+-            int spawnZ = this.center.getZ() + Mth.floor(Mth.sin(angle) * 32.0F * howFar) + this.random.nextInt(3) * Mth.floor(howFar);
++            int spawnX = this.center.getX() + Mth.floor(Mth.cos(angle) * 32.0F * howFar) + random.nextInt(3) * Mth.floor(howFar); // Gale - Patina - reduce RandomSource instances
++            int spawnZ = this.center.getZ() + Mth.floor(Mth.sin(angle) * 32.0F * howFar) + random.nextInt(3) * Mth.floor(howFar); // Gale - Patina - reduce RandomSource instances
+             int spawnY = level.getHeight(Heightmap.Types.WORLD_SURFACE, spawnX, spawnZ);
+             if (Mth.abs(spawnY - this.center.getY()) <= 96) {
+                 spawnPos.set(spawnX, spawnY, spawnZ);
+diff --git a/net/minecraft/world/item/DyeColor.java b/net/minecraft/world/item/DyeColor.java
+index 4b37dead3b5561bc021cf19a008179c844703ca5..35b14be6dc363f1727133e985a49ef262da88373 100644
+--- a/net/minecraft/world/item/DyeColor.java
++++ b/net/minecraft/world/item/DyeColor.java
+@@ -131,7 +131,93 @@ public enum DyeColor implements StringRepresentable {
+         return this.name;
+     }
+ 
++    // Gale start - carpet-fixes - optimize sheep offspring color
++    private static @Nullable DyeColor properDye(DyeColor firstColor, DyeColor secondColor) {
++        if (firstColor.equals(secondColor)) return firstColor;
++        switch (firstColor) {
++            case WHITE -> {
++                switch (secondColor) {
++                    case BLUE -> {
++                        return DyeColor.LIGHT_BLUE;
++                    }
++                    case GRAY -> {
++                        return DyeColor.LIGHT_GRAY;
++                    }
++                    case BLACK -> {
++                        return DyeColor.GRAY;
++                    }
++                    case GREEN -> {
++                        return DyeColor.LIME;
++                    }
++                    case RED -> {
++                        return DyeColor.PINK;
++                    }
++                }
++            }
++            case BLUE -> {
++                switch (secondColor) {
++                    case WHITE -> {
++                        return DyeColor.LIGHT_BLUE;
++                    }
++                    case GREEN -> {
++                        return DyeColor.CYAN;
++                    }
++                    case RED -> {
++                        return DyeColor.PURPLE;
++                    }
++                }
++            }
++            case RED -> {
++                switch (secondColor) {
++                    case YELLOW -> {
++                        return DyeColor.ORANGE;
++                    }
++                    case WHITE -> {
++                        return DyeColor.PINK;
++                    }
++                    case BLUE -> {
++                        return DyeColor.PURPLE;
++                    }
++                }
++            }
++            case GREEN -> {
++                switch (secondColor) {
++                    case BLUE -> {
++                        return DyeColor.CYAN;
++                    }
++                    case WHITE -> {
++                        return DyeColor.LIME;
++                    }
++                }
++            }
++            case YELLOW -> {
++                if (secondColor.equals(DyeColor.RED)) return DyeColor.ORANGE;
++            }
++            case PURPLE -> {
++                if (secondColor.equals(DyeColor.PINK)) return DyeColor.MAGENTA;
++            }
++            case PINK -> {
++                if (secondColor.equals(DyeColor.PURPLE)) return DyeColor.MAGENTA;
++            }
++            case GRAY -> {
++                if (secondColor.equals(DyeColor.WHITE)) return DyeColor.LIGHT_GRAY;
++            }
++            case BLACK -> {
++                if (secondColor.equals(DyeColor.WHITE)) return DyeColor.GRAY;
++            }
++        }
++        return null;
++    }
++    // Gale end - carpet-fixes - optimize sheep offspring color
++
+     public static DyeColor getMixedColor(final ServerLevel level, final DyeColor dyeColor1, final DyeColor dyeColor2) {
++        // Gale start - carpet-fixes - optimize sheep offspring color
++        if (level.galeConfig().smallOptimizations.useOptimizedSheepOffspringColor) {
++            DyeColor col = properDye(dyeColor1, dyeColor2);
++            if (col == null) col = level.simpleRandom.nextBoolean() ? dyeColor1 : dyeColor2;
++            return col;
++        }
++        // Gale end - carpet-fixes - optimize sheep offspring color
+         DyeColor mixedColor = findColorMixInRecipes(level, dyeColor1, dyeColor2);
+         if (mixedColor != null) {
+             return mixedColor;
+diff --git a/net/minecraft/world/item/EndCrystalItem.java b/net/minecraft/world/item/EndCrystalItem.java
+index fdce2bdc2ea73718bd016c2f2dbcb9d24f9d8cad..b2b8efad9da71fddb1a1011c05b7d6c7fe71bffb 100644
+--- a/net/minecraft/world/item/EndCrystalItem.java
++++ b/net/minecraft/world/item/EndCrystalItem.java
+@@ -52,10 +52,12 @@ public class EndCrystalItem extends Item {
+             // CraftBukkit end
+             level.addFreshEntity(crystal);
+             level.gameEvent(context.getPlayer(), GameEvent.ENTITY_PLACE, above);
++            if (level.galeConfig().gameplayMechanics.tryRespawnEnderDragonAfterEndCrystalPlace) { // Gale - Pufferfish - make ender dragon respawn attempt after placing end crystals configurable
+             EnderDragonFight fight = serverLevel.getDragonFight();
+             if (fight != null) {
+                 fight.tryRespawn(above); // Paper - Perf: Do crystal-portal proximity check before entity lookup
+             }
++            } // Gale - Pufferfish - make ender dragon respawn attempt after placing end crystals configurable
+         }
+ 
+         context.getItemInHand().shrink(1);
+diff --git a/net/minecraft/world/item/ItemStack.java b/net/minecraft/world/item/ItemStack.java
+index 7f8d25e3a85c2fbacc2071a799f1aa5e267cffc9..356ffccf1c1c406566d9f052e18270471cad67f3 100644
+--- a/net/minecraft/world/item/ItemStack.java
++++ b/net/minecraft/world/item/ItemStack.java
+@@ -873,11 +873,11 @@ public final class ItemStack implements DataComponentHolder, ItemInstance {
+     }
+ 
+     public static boolean isSameItem(final ItemStack a, final ItemStack b) {
+-        return a.is(b.getItem());
++        return a == b || a.is(b.getItem()); // Gale - optimize identical item checks
+     }
+ 
+     public static boolean isSameItemSameComponents(final ItemStack a, final ItemStack b) {
+-        return a.is(b.getItem()) && (a.isEmpty() && b.isEmpty() || Objects.equals(a.components, b.components));
++        return a == b || a.is(b.getItem()) && (a.isEmpty() && b.isEmpty() || Objects.equals(a.components, b.components)); // Gale - optimize identical item checks
+     }
+ 
+     public static boolean matchesIgnoringComponents(final ItemStack a, final ItemStack b, final Predicate<DataComponentType<?>> ignoredPredicate) {
+@@ -1204,7 +1204,7 @@ public final class ItemStack implements DataComponentHolder, ItemInstance {
+ 
+     private void addAttributeTooltips(final Consumer<Component> consumer, final TooltipDisplay display, final @Nullable Player player) {
+         if (display.shows(DataComponents.ATTRIBUTE_MODIFIERS)) {
+-            for (EquipmentSlotGroup slot : EquipmentSlotGroup.values()) {
++            for (EquipmentSlotGroup slot : EquipmentSlotGroup.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+                 MutableBoolean first = new MutableBoolean(true);
+                 this.forEachModifier(slot, (attribute, modifier, tooltip) -> {
+                     if (tooltip != ItemAttributeModifiers.Display.hidden()) {
+diff --git a/net/minecraft/world/item/crafting/ShapedRecipePattern.java b/net/minecraft/world/item/crafting/ShapedRecipePattern.java
+index b2ca30b84a6f498a2b18145eb1efaea7c4c5c943..f60e6188d25c13fc433931b0e8760869ccee8fb0 100644
+--- a/net/minecraft/world/item/crafting/ShapedRecipePattern.java
++++ b/net/minecraft/world/item/crafting/ShapedRecipePattern.java
+@@ -121,7 +121,7 @@ public final class ShapedRecipePattern {
+         }
+ 
+         if (pattern.size() == bottom) {
+-            return new String[0];
++            return me.titaniumtown.ArrayConstants.emptyStringArray; // Gale - JettPack - reduce array allocations
+         }
+ 
+         String[] result = new String[pattern.size() - bottom - top];
+diff --git a/net/minecraft/world/item/crafting/ShapelessRecipe.java b/net/minecraft/world/item/crafting/ShapelessRecipe.java
+index 45b8bc986a05a661ab6d1a8a7ac94efb42074374..431316a2d2f1e14cdf2edc7bf414b00416de645e 100644
+--- a/net/minecraft/world/item/crafting/ShapelessRecipe.java
++++ b/net/minecraft/world/item/crafting/ShapelessRecipe.java
+@@ -38,10 +38,17 @@ public class ShapelessRecipe extends NormalCraftingRecipe {
+     public static final RecipeSerializer<ShapelessRecipe> SERIALIZER = new RecipeSerializer<>(MAP_CODEC, STREAM_CODEC);
+     private final ItemStackTemplate result;
+     private final List<Ingredient> ingredients;
++    private final boolean isBukkit; // Gale - Airplane - simpler ShapelessRecipe comparison for vanilla
+ 
+     public ShapelessRecipe(
+         final Recipe.CommonInfo commonInfo, final CraftingRecipe.CraftingBookInfo bookInfo, final ItemStackTemplate result, final List<Ingredient> ingredients
+     ) {
++        // Gale start - Airplane - simpler ShapelessRecipe comparison for vanilla
++        this(commonInfo, bookInfo, result, ingredients, false);
++    }
++    public ShapelessRecipe(final Recipe.CommonInfo commonInfo, final CraftingRecipe.CraftingBookInfo bookInfo, final ItemStackTemplate result, final List<Ingredient> ingredients, boolean isBukkit) {
++        this.isBukkit = isBukkit;
++        // Gale end - Airplane - simpler ShapelessRecipe comparison for vanilla
+         super(commonInfo, bookInfo);
+         this.result = result;
+         this.ingredients = ingredients;
+@@ -74,6 +81,29 @@ public class ShapelessRecipe extends NormalCraftingRecipe {
+ 
+     @Override
+     public boolean matches(final CraftingInput input, final Level level) {
++        // Gale start - Airplane - simpler ShapelessRecipe comparison for vanilla
++        if (!this.isBukkit) {
++            List<Ingredient> ingredients = com.google.common.collect.Lists.newArrayList(this.ingredients.toArray(new Ingredient[0]));
++
++            inventory:
++            for (int index = 0; index < input.size(); index++) {
++                ItemStack itemStack = input.getItem(index);
++
++                if (!itemStack.isEmpty()) {
++                    for (int i = 0; i < ingredients.size(); i++) {
++                        if (ingredients.get(i).test(itemStack)) {
++                            ingredients.remove(i);
++                            continue inventory;
++                        }
++                    }
++
++                    return false;
++                }
++            }
++
++            return ingredients.isEmpty();
++        }
++        // Gale end - Airplane - simpler ShapelessRecipe comparison for vanilla
+         // Paper start - Improve exact choice recipe ingredients & unwrap ternary
+         if (input.ingredientCount() != this.ingredients.size()) {
+             return false;
+diff --git a/net/minecraft/world/item/enchantment/Enchantment.java b/net/minecraft/world/item/enchantment/Enchantment.java
+index d6105aa411d694be8bdcc5301ea96d0ee0b55245..212f4bd662c3ad026017755163d5f89a4e73de8e 100644
+--- a/net/minecraft/world/item/enchantment/Enchantment.java
++++ b/net/minecraft/world/item/enchantment/Enchantment.java
+@@ -106,7 +106,7 @@ public record Enchantment(Component description, Enchantment.EnchantmentDefiniti
+     public Map<EquipmentSlot, ItemStack> getSlotItems(final LivingEntity entity) {
+         Map<EquipmentSlot, ItemStack> itemStacks = Maps.newEnumMap(EquipmentSlot.class);
+ 
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             if (this.matchingSlot(slot)) {
+                 ItemStack itemStack = entity.getItemBySlot(slot);
+                 if (!itemStack.isEmpty()) {
+diff --git a/net/minecraft/world/item/enchantment/EnchantmentHelper.java b/net/minecraft/world/item/enchantment/EnchantmentHelper.java
+index 4dc7de470a3de92b1703dae3271fdc094dbe0b1d..32daa598a75affc810463cc170ea155d992a569b 100644
+--- a/net/minecraft/world/item/enchantment/EnchantmentHelper.java
++++ b/net/minecraft/world/item/enchantment/EnchantmentHelper.java
+@@ -156,7 +156,7 @@ public class EnchantmentHelper {
+     }
+ 
+     private static void runIterationOnEquipment(final LivingEntity owner, final EnchantmentHelper.EnchantmentInSlotVisitor method) {
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             runIterationOnItem(owner.getItemBySlot(slot), slot, owner, method);
+         }
+     }
+@@ -494,7 +494,7 @@ public class EnchantmentHelper {
+     ) {
+         List<EnchantedItemInUse> items = new ArrayList<>();
+ 
+-        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
++        for (EquipmentSlot slot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack item = source.getItemBySlot(slot);
+             if (predicate.test(item)) {
+                 ItemEnchantments enchantments = item.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
+@@ -660,7 +660,7 @@ public class EnchantmentHelper {
+         float maxPercent = 0.0F;
+ 
+         equipmentSlotLoop:
+-        for (EquipmentSlot equipmentSlot : EquipmentSlot.values()) {
++        for (EquipmentSlot equipmentSlot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             ItemStack stack = entity.getItemBySlot(equipmentSlot);
+ 
+             // do not even check enchantments for item with lower or equal damage percent
+diff --git a/net/minecraft/world/level/EntityBasedExplosionDamageCalculator.java b/net/minecraft/world/level/EntityBasedExplosionDamageCalculator.java
+index 356a3a0dda09af007c3fbddfe360b38f4d7204ce..aff8d67c9b9797402a3bf6c5bce54af19af0ade7 100644
+--- a/net/minecraft/world/level/EntityBasedExplosionDamageCalculator.java
++++ b/net/minecraft/world/level/EntityBasedExplosionDamageCalculator.java
+@@ -17,8 +17,20 @@ public class EntityBasedExplosionDamageCalculator extends ExplosionDamageCalcula
+     public Optional<Float> getBlockExplosionResistance(
+         final Explosion explosion, final BlockGetter level, final BlockPos pos, final BlockState block, final FluidState fluid
+     ) {
+-        return super.getBlockExplosionResistance(explosion, level, pos, block, fluid)
+-            .map(resistance -> this.source.getBlockExplosionResistance(explosion, level, pos, block, fluid, resistance));
++        // Gale start - Lithium - reduce lambda and Optional allocation in EntityBasedExplosionDamageCalculator
++        Optional<Float> optionalBlastResistance = super.getBlockExplosionResistance(explosion, level, pos, block, fluid);
++
++        if (optionalBlastResistance.isPresent()) {
++            float resistance = optionalBlastResistance.get();
++            float effectiveExplosionResistance = this.source.getBlockExplosionResistance(explosion, level, pos, block, fluid, resistance);
++
++            if (effectiveExplosionResistance != resistance) {
++                return Optional.of(effectiveExplosionResistance);
++            }
++        }
++
++        return optionalBlastResistance;
++        // Gale end - Lithium - reduce lambda and Optional allocation in EntityBasedExplosionDamageCalculator
+     }
+ 
+     @Override
+diff --git a/net/minecraft/world/level/Level.java b/net/minecraft/world/level/Level.java
+index e6df431292793036c247ae5714b3ef44b60b5917..7917d685ebe97a4dae141d57273deeb22760694d 100644
+--- a/net/minecraft/world/level/Level.java
++++ b/net/minecraft/world/level/Level.java
+@@ -181,6 +181,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+     public static @Nullable BlockPos lastPhysicsProblem; // Spigot
+     public final Map<ServerExplosion.CacheKey, Float> explosionDensityCache = new java.util.HashMap<>(); // Paper - Optimize explosions
+     public java.util.ArrayDeque<net.minecraft.world.level.block.RedstoneTorchBlock.Toggle> redstoneUpdateInfos; // Paper - Faster redstone torch rapid clock removal; Move from Map in BlockRedstoneTorch to here
++    public final ca.spottedleaf.moonrise.common.util.SimpleThreadUnsafeRandom simpleRandom = new ca.spottedleaf.moonrise.common.util.SimpleThreadUnsafeRandom(net.minecraft.world.level.levelgen.RandomSupport.generateUniqueSeed()); // Gale - Pufferfish - move random tick random
+ 
+     // Purpur start - Add adjustable breeding cooldown to config
+     private com.google.common.cache.Cache<BreedingCooldownPair, Object> playerBreedingCooldowns;
+@@ -1605,7 +1606,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+             final String msg = String.format("Entity threw exception at %s:%s,%s,%s", io.papermc.paper.util.MCUtil.getLevelName(entity.level()), entity.getX(), entity.getY(), entity.getZ());
+             MinecraftServer.LOGGER.error(msg, t);
+             getCraftServer().getPluginManager().callEvent(new com.destroystokyo.paper.event.server.ServerExceptionEvent(new com.destroystokyo.paper.exception.ServerInternalException(msg, t))); // Paper - ServerExceptionEvent
+-            entity.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DISCARD);
++            entity.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DISCARD); // Gale - Airplane - remove lambda from ticking guard - diff on change ServerLevel#tick
+             // Paper end - Prevent block entity and entity crashes
+         }
+         if (!io.papermc.paper.swift.async.SwiftAsync.parallel) // Swift - async entities: chunk tasks only between serial ticks
+@@ -1947,7 +1948,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+     public org.bukkit.entity.Entity[] getChunkEntities(int chunkX, int chunkZ) {
+         ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices slices = ((ServerLevel)this).moonrise$getEntityLookup().getChunk(chunkX, chunkZ);
+         if (slices == null) {
+-            return new org.bukkit.entity.Entity[0];
++            return me.titaniumtown.ArrayConstants.emptyBukkitEntityArray; // Gale - JettPack - reduce array allocations
+         }
+ 
+         List<org.bukkit.entity.Entity> ret = new java.util.ArrayList<>();
+@@ -1958,7 +1959,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable, ca.spottedl
+             }
+         }
+ 
+-        return ret.toArray(new org.bukkit.entity.Entity[0]);
++        return ret.toArray(me.titaniumtown.ArrayConstants.emptyBukkitEntityArray); // Gale - JettPack - reduce array allocations
+     }
+     // Paper end - rewrite chunk system
+ 
+diff --git a/net/minecraft/world/level/LocalMobCapCalculator.java b/net/minecraft/world/level/LocalMobCapCalculator.java
+index 5b3808e6ff58d350fe3fd65fb56e8f209e1b2c93..150dfb4c8465dea0139bdbf804a84ce28e8d9023 100644
+--- a/net/minecraft/world/level/LocalMobCapCalculator.java
++++ b/net/minecraft/world/level/LocalMobCapCalculator.java
+@@ -42,14 +42,14 @@ public class LocalMobCapCalculator {
+     }
+ 
+     private static class MobCounts {
+-        private final Object2IntMap<MobCategory> counts = new Object2IntOpenHashMap<>(MobCategory.values().length);
++        private final int[] counts = new int[MobCategory.values().length]; // Gale - VMP - store mob counts in an array
+ 
+         public void add(final MobCategory category) {
+-            this.counts.computeInt(category, (k, count) -> count == null ? 1 : count + 1);
++            this.counts[category.ordinal()]++; // Gale - VMP - store mob counts in an array
+         }
+ 
+         public boolean canSpawn(final MobCategory category) {
+-            return this.counts.getOrDefault(category, 0) < category.getMaxInstancesPerChunk();
++            return this.counts[category.ordinal()] < category.getMaxInstancesPerChunk(); // Gale - VMP - store mob counts in an array
+         }
+     }
+ }
+diff --git a/net/minecraft/world/level/block/Block.java b/net/minecraft/world/level/block/Block.java
+index 6e8bd9247fc5f381c695f2a28fe6814faf7b673f..c2d487f2b17ef9e5068817469deecff81b46dbc9 100644
+--- a/net/minecraft/world/level/block/Block.java
++++ b/net/minecraft/world/level/block/Block.java
+@@ -729,7 +729,20 @@ public class Block extends BlockBehaviour implements ItemLike {
+     }
+     // CraftBukkit end
+ 
+-    private record ShapePairKey(VoxelShape first, VoxelShape second) {
++    // Gale start - cache ShapePairKey hash
++    private static class ShapePairKey {
++
++        private final VoxelShape first;
++        private final VoxelShape second;
++        private final int hash;
++
++        private ShapePairKey(VoxelShape first, VoxelShape second) {
++            this.first = first;
++            this.second = second;
++            this.hash = System.identityHashCode(this.first) * 31 + System.identityHashCode(this.second);
++        }
++        // Gale end - cache ShapePairKey hash
++
+         @Override
+         public boolean equals(final Object o) {
+             return o instanceof Block.ShapePairKey that && this.first == that.first && this.second == that.second;
+@@ -737,7 +750,7 @@ public class Block extends BlockBehaviour implements ItemLike {
+ 
+         @Override
+         public int hashCode() {
+-            return System.identityHashCode(this.first) * 31 + System.identityHashCode(this.second);
++            return this.hash; // Gale - cache ShapePairKey hash
+         }
+     }
+ 
+diff --git a/net/minecraft/world/level/block/ComposterBlock.java b/net/minecraft/world/level/block/ComposterBlock.java
+index 893d9b18899d9b68bb1b3c6690be93492fb3f89d..a918e1968ca8f40b6af1908a29b588ddaeffe13c 100644
+--- a/net/minecraft/world/level/block/ComposterBlock.java
++++ b/net/minecraft/world/level/block/ComposterBlock.java
+@@ -322,7 +322,7 @@ public class ComposterBlock extends Block implements WorldlyContainerHolder {
+ 
+         @Override
+         public int[] getSlotsForFace(final Direction direction) {
+-            return new int[0];
++            return me.titaniumtown.ArrayConstants.emptyIntArray; // Gale - JettPack - reduce array allocations
+         }
+ 
+         @Override
+@@ -357,7 +357,7 @@ public class ComposterBlock extends Block implements WorldlyContainerHolder {
+ 
+         @Override
+         public int[] getSlotsForFace(final Direction direction) {
+-            return direction == Direction.UP ? new int[]{0} : new int[0];
++            return direction == Direction.UP ? me.titaniumtown.ArrayConstants.zeroSingletonIntArray : me.titaniumtown.ArrayConstants.emptyIntArray; // Gale - JettPack - reduce array allocations
+         }
+ 
+         @Override
+@@ -409,7 +409,7 @@ public class ComposterBlock extends Block implements WorldlyContainerHolder {
+ 
+         @Override
+         public int[] getSlotsForFace(final Direction direction) {
+-            return direction == Direction.DOWN ? new int[]{0} : new int[0];
++            return direction == Direction.DOWN ? me.titaniumtown.ArrayConstants.zeroSingletonIntArray : me.titaniumtown.ArrayConstants.emptyIntArray; // Gale - JettPack - reduce array allocations
+         }
+ 
+         @Override
+diff --git a/net/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity.java b/net/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity.java
+index c97881ab9d21612c308a2b542c9edca32596da32..9f4ca4d208f4f1ac1822be4eec404ab8fdf9f206 100644
+--- a/net/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity.java
+@@ -49,7 +49,7 @@ public abstract class AbstractFurnaceBlockEntity extends BaseContainerBlockEntit
+     protected static final int SLOT_FUEL = 1;
+     protected static final int SLOT_RESULT = 2;
+     public static final int DATA_LIT_TIME = 0;
+-    private static final int[] SLOTS_FOR_UP = new int[]{0};
++    private static final int[] SLOTS_FOR_UP = me.titaniumtown.ArrayConstants.zeroSingletonIntArray; // Gale - JettPack - reduce array allocations
+     private static final int[] SLOTS_FOR_DOWN = new int[]{2, 1};
+     private static final int[] SLOTS_FOR_SIDES = new int[]{1};
+     public static final int DATA_LIT_DURATION = 1;
+diff --git a/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java b/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
+index 0eb38edc4cea67390f998eb5cff4c55146e811d6..fa06068346351cd7d78c7560a0f09ab1282886c1 100644
+--- a/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
+@@ -251,7 +251,7 @@ public class TheEndGatewayBlockEntity extends TheEndPortalBlockEntity {
+     }
+ 
+     private static void spawnGatewayPortal(final ServerLevel level, final BlockPos portalPos, final EndGatewayFeature feature) {
+-        feature.place(level, level.getChunkSource().getGenerator(), RandomSource.create(), portalPos);
++        feature.place(level, level.getChunkSource().getGenerator(), level.getRandom(), portalPos); // Gale - Patina - reduce RandomSource instances
+     }
+ 
+     @Override
+diff --git a/net/minecraft/world/level/chunk/LevelChunk.java b/net/minecraft/world/level/chunk/LevelChunk.java
+index 76dae652c910e36c860791a8285bd9fee466d5b9..e33eb42e26ab71b83976c3e24f37c110de979606 100644
+--- a/net/minecraft/world/level/chunk/LevelChunk.java
++++ b/net/minecraft/world/level/chunk/LevelChunk.java
+@@ -140,6 +140,18 @@ public class LevelChunk extends ChunkAccess implements DebugValueSource, ca.spot
+     }
+     // Paper end - get block chunk optimisation
+ 
++    // Gale start - Airplane - optimize random calls in chunk ticking - instead of using a random every time the chunk is ticked, define when lightning strikes preemptively
++    private int lightningTick;
++    // shouldDoLightning compiles down to 29 bytes, which with the default of 35 byte inlining should guarantee an inline
++    public final boolean shouldDoLightning(net.minecraft.util.RandomSource random) {
++        if (this.lightningTick-- <= 0) {
++            this.lightningTick = random.nextInt(this.level.spigotConfig.thunderChance) << 1;
++            return true;
++        }
++        return false;
++    }
++    // Gale end - Airplane - optimize random calls in chunk ticking - instead of using a random every time the chunk is ticked, define when lightning strikes preemptively
++
+     public LevelChunk(final Level level, final ChunkPos pos) {
+         this(level, pos, UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, null, null, null);
+     }
+@@ -176,6 +188,8 @@ public class LevelChunk extends ChunkAccess implements DebugValueSource, ca.spot
+         this.debug = !empty && this.level.isDebug();
+         this.defaultBlockState = empty ? VOID_AIR_BLOCKSTATE : AIR_BLOCKSTATE;
+         // Paper end - get block chunk optimisation
++
++        this.lightningTick = this.level.simpleRandom.nextInt(100000) << 1; // Gale - Airplane - optimize random calls in chunk ticking - initialize lightning tick
+     }
+ 
+     public LevelChunk(final ServerLevel level, final ProtoChunk protoChunk, final LevelChunk.@Nullable PostLoadProcessor postLoad) {
+diff --git a/net/minecraft/world/level/dimension/end/EnderDragonFight.java b/net/minecraft/world/level/dimension/end/EnderDragonFight.java
+index 5440b181eca0a97b42742fdd21f7c27accc0a3ec..ad9002fa7199a389ba76b6157699f063f71e2470 100644
+--- a/net/minecraft/world/level/dimension/end/EnderDragonFight.java
++++ b/net/minecraft/world/level/dimension/end/EnderDragonFight.java
+@@ -472,7 +472,7 @@ public class EnderDragonFight extends SavedData {
+             .registryAccess()
+             .lookup(Registries.FEATURE)
+             .flatMap(registry -> registry.get(EndFeatures.END_GATEWAY_DELAYED))
+-            .ifPresent(endGateway -> endGateway.value().place(this.level, this.level.getChunkSource().getGenerator(), RandomSource.create(), pos));
++            .ifPresent(endGateway -> endGateway.value().place(this.level, this.level.getChunkSource().getGenerator(), this.level.getRandom(), pos)); // Gale - Patina - reduce RandomSource instances
+     }
+ 
+     public void spawnExitPortal(final boolean activated) {
+diff --git a/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java b/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
+index f0529d233b791e226cec469b2efebcffd02c6d58..ff328b5435e4e5ca148680d912078b939927aa79 100644
+--- a/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
++++ b/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
+@@ -69,6 +69,7 @@ public final class NoiseBasedChunkGenerator extends ChunkGenerator {
+     private static final DecimalFormat DEBUG_DENSITY_FORMAT = new DecimalFormat("0.000", DecimalFormatSymbols.getInstance(Locale.ROOT));
+     private final Holder<NoiseGeneratorSettings> settings;
+     private final Supplier<Aquifer.FluidPicker> globalFluidPicker;
++    private int cachedSeaLevel = Integer.MIN_VALUE; // Gale - Lithium - cache world generator sea level
+ 
+     public NoiseBasedChunkGenerator(final BiomeSource biomeSource, final Holder<NoiseGeneratorSettings> settings) {
+         super(biomeSource);
+@@ -500,7 +501,12 @@ public final class NoiseBasedChunkGenerator extends ChunkGenerator {
+ 
+     @Override
+     public int getSeaLevel() {
+-        return this.settings.value().seaLevel();
++        // Gale start - Lithium - cache world generator sea level
++        if (cachedSeaLevel == Integer.MIN_VALUE) {
++            this.cachedSeaLevel = this.settings.value().seaLevel();
++        }
++        return this.cachedSeaLevel;
++        // Gale end - Lithium - cache world generator sea level
+     }
+ 
+     @Override
+diff --git a/net/minecraft/world/level/levelgen/PhantomSpawner.java b/net/minecraft/world/level/levelgen/PhantomSpawner.java
+index ed227f3bcc0a9efe34d8fc32d10d7c7029c3dd5b..ba9a21ab3188a8ff0681e7d368eb4d2161d2e2c7 100644
+--- a/net/minecraft/world/level/levelgen/PhantomSpawner.java
++++ b/net/minecraft/world/level/levelgen/PhantomSpawner.java
+@@ -52,8 +52,16 @@ public class PhantomSpawner implements CustomSpawner {
+                                             BlockPos spawnPos = playerPos.above(20 + random.nextInt(15))
+                                                 .east(-10 + random.nextInt(21))
+                                                 .south(-10 + random.nextInt(21));
+-                                            BlockState blockState = level.getBlockState(spawnPos);
+-                                            FluidState fluidState = level.getFluidState(spawnPos);
++                                            // Gale start - MultiPaper - don't load chunks to spawn phantoms
++                                            BlockState blockState;
++                                            if (level.galeConfig().smallOptimizations.loadChunks.toSpawnPhantoms) {
++                                                blockState = level.getBlockState(spawnPos);
++                                            } else {
++                                                blockState = level.getBlockStateIfLoaded(spawnPos);
++                                                if (blockState == null) continue;
++                                            }
++                                            FluidState fluidState = blockState.getFluidState();
++                                            // Gale end - MultiPaper - don't load chunks to spawn phantoms
+                                             if (NaturalSpawner.isValidEmptySpawnBlock(level, spawnPos, blockState, fluidState, EntityTypes.PHANTOM)) {
+                                                 SpawnGroupData groupData = null;
+                                                 int groupSize = level.purpurConfig.phantomSpawnMinPerAttempt + random.nextInt((level.purpurConfig.phantomSpawnMaxPerAttempt < 0 ? difficulty.getDifficulty().getId() : level.purpurConfig.phantomSpawnMaxPerAttempt - level.purpurConfig.phantomSpawnMinPerAttempt) + 1); // Purpur - Add phantom spawning options
+diff --git a/net/minecraft/world/level/levelgen/blending/Blender.java b/net/minecraft/world/level/levelgen/blending/Blender.java
+index 6f03d4404c3fe5e36c236da294fc6e6561a965c4..b7722239afbc04f77445584f5019fedc3c8f3ced 100644
+--- a/net/minecraft/world/level/levelgen/blending/Blender.java
++++ b/net/minecraft/world/level/levelgen/blending/Blender.java
+@@ -188,7 +188,7 @@ public class Blender {
+     private static double heightToOffset(final double height) {
+         double dimensionFactor = 1.0;
+         double targetY = height + 0.5;
+-        double targetYMod = Mth.positiveModulo(targetY, 8.0);
++        double targetYMod = Mth.positiveModuloForPositiveIntegerDenominator(targetY, 8.0); // Gale - faster floating-point positive modulo
+         return 1.0 * (32.0 * (targetY - 128.0) - 3.0 * (targetY - 120.0) * targetYMod + 3.0 * targetYMod * targetYMod) / (128.0 * (32.0 - 3.0 * targetYMod));
+     }
+ 
+diff --git a/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java b/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java
+index 4d61cfda8e6bd752845a9ebd61181e276aa725aa..dbad8927a43c4bffcfe4e7596c50ab4c7cc9d7d9 100644
+--- a/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java
++++ b/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java
+@@ -267,7 +267,7 @@ public class MapItemSavedData extends SavedData {
+     }
+ 
+     private static boolean hasMapInvisibilityItemEquipped(final Player player) {
+-        for (EquipmentSlot equipmentSlot : EquipmentSlot.values()) {
++        for (EquipmentSlot equipmentSlot : EquipmentSlot.VALUES_ARRAY) { // Gale - JettPack - reduce array allocations
+             if (equipmentSlot != EquipmentSlot.MAINHAND
+                 && equipmentSlot != EquipmentSlot.OFFHAND
+                 && player.getItemBySlot(equipmentSlot).is(ItemTags.MAP_INVISIBILITY_EQUIPMENT)) {
+diff --git a/net/minecraft/world/phys/shapes/CubePointRange.java b/net/minecraft/world/phys/shapes/CubePointRange.java
+index 72bb3bb29f2a1b06371589ed9bfea85de8046d50..5bb69d413c4751dd5f68f3f27e3a9f24695109b0 100644
+--- a/net/minecraft/world/phys/shapes/CubePointRange.java
++++ b/net/minecraft/world/phys/shapes/CubePointRange.java
+@@ -3,23 +3,25 @@ package net.minecraft.world.phys.shapes;
+ import it.unimi.dsi.fastutil.doubles.AbstractDoubleList;
+ 
+ public class CubePointRange extends AbstractDoubleList {
+-    private final int parts;
++    private final int size; // Gale - replace parts by size in CubePointRange
++    private final double scale; // Gale - Lithium - replace division by multiplication in CubePointRange
+ 
+     public CubePointRange(final int parts) {
+         if (parts <= 0) {
+             throw new IllegalArgumentException("Need at least 1 part");
+         }
+ 
+-        this.parts = parts;
++        this.size = parts + 1; // Gale - replace parts by size in CubePointRange
++        this.scale = 1.0D / parts; // Gale - Lithium - replace division by multiplication in CubePointRange
+     }
+ 
+     @Override
+     public double getDouble(final int index) {
+-        return (double)index / this.parts;
++        return index * this.scale; // Gale - Lithium - replace division by multiplication in CubePointRange
+     }
+ 
+     @Override
+     public int size() {
+-        return this.parts + 1;
++        return this.size; // Gale - replace parts by size in CubePointRange
+     }
+ }
+diff --git a/net/minecraft/world/phys/shapes/EntityCollisionContext.java b/net/minecraft/world/phys/shapes/EntityCollisionContext.java
+index 2958b47d82064eb1ef7578e8515dee3eaa55d330..fd421bef0db76d9047003276f288a6fde817c68a 100644
+--- a/net/minecraft/world/phys/shapes/EntityCollisionContext.java
++++ b/net/minecraft/world/phys/shapes/EntityCollisionContext.java
+@@ -12,10 +12,7 @@ import net.minecraft.world.level.material.FluidState;
+ import org.jspecify.annotations.Nullable;
+ 
+ public class EntityCollisionContext implements CollisionContext {
+-    private final boolean descending;
+-    private final double entityBottom;
+-    private final boolean placement;
+-    private final ItemStack heldItem;
++    private final boolean placement; // Gale - Airplane - make EntityCollisionContext a live representation - remove these and pray no plugin uses them
+     private final boolean alwaysCollideWithFluid;
+     private final @Nullable Entity entity;
+ 
+@@ -27,29 +24,23 @@ public class EntityCollisionContext implements CollisionContext {
+         final boolean alwaysCollideWithFluid,
+         final @Nullable Entity entity
+     ) {
+-        this.descending = descending;
+-        this.placement = placement;
+-        this.entityBottom = entityBottom;
+-        this.heldItem = heldItem;
++        this.placement = placement; // Gale - Airplane - make EntityCollisionContext a live representation - remove these and pray no plugin uses them
+         this.alwaysCollideWithFluid = alwaysCollideWithFluid;
+         this.entity = entity;
+     }
+ 
+     @Deprecated
+     protected EntityCollisionContext(final Entity entity, final boolean alwaysCollideWithFluid, final boolean placement) {
+-        this(
+-            entity.isDescending(),
+-            placement,
+-            entity.getY(),
+-            entity instanceof LivingEntity livingEntity ? livingEntity.getMainHandItem() : ItemStack.EMPTY,
+-            alwaysCollideWithFluid,
+-            entity
+-        );
++        // Gale start - Airplane - make EntityCollisionContext a live representation - remove unneeded things
++        this.entity = entity;
++        this.alwaysCollideWithFluid = alwaysCollideWithFluid;
++        this.placement = placement;
++        // Gale end - Airplane - make EntityCollisionContext a live representation - remove unneeded things
+     }
+ 
+     @Override
+     public boolean isHoldingItem(final Item item) {
+-        return this.heldItem.is(item);
++        return this.entity instanceof LivingEntity livingEntity ? livingEntity.getMainHandItem().is(item) : ItemStack.EMPTY.is(item); // Gale - Airplane - make EntityCollisionContext a live representation
+     }
+ 
+     @Override
+@@ -69,12 +60,12 @@ public class EntityCollisionContext implements CollisionContext {
+ 
+     @Override
+     public boolean isDescending() {
+-        return this.descending;
++        return this.entity != null && this.entity.isDescending(); // Gale - Airplane - make EntityCollisionContext a live representation
+     }
+ 
+     @Override
+     public boolean isAbove(final VoxelShape shape, final BlockPos pos, final boolean defaultValue) {
+-        return this.entityBottom > pos.getY() + shape.max(Direction.Axis.Y) - 1.0E-5F;
++        return (this.entity == null ? -Double.MAX_VALUE : entity.getY()) > (double) pos.getY() + shape.max(Direction.Axis.Y) - (double) 1.0E-5F; // Gale - Airplane - make EntityCollisionContext a live representation
+     }
+ 
+     public @Nullable Entity getEntity() {
+diff --git a/org/purpurmc/purpur/command/PurpurCommand.java b/org/purpurmc/purpur/command/PurpurCommand.java
+index 63e5ae61a763883d93f2dd800ab48a54c9e71077..128e412e99397db4e031863ef073954fa75278dc 100644
+--- a/org/purpurmc/purpur/command/PurpurCommand.java
++++ b/org/purpurmc/purpur/command/PurpurCommand.java
+@@ -58,7 +58,7 @@ public class PurpurCommand extends Command {
+         } else if (args[0].equalsIgnoreCase("version")) {
+             Command verCmd = org.bukkit.Bukkit.getServer().getCommandMap().getCommand("version");
+             if (verCmd != null) {
+-                return verCmd.execute(sender, commandLabel, new String[0]);
++                return verCmd.execute(sender, commandLabel, me.titaniumtown.ArrayConstants.emptyStringArray); // Gale - JettPack - reduce array allocations
+             }
+         } else {
+             sender.sendMessage(Component.text("Usage: " + usageMessage, NamedTextColor.RED));
