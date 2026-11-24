@@ -134,8 +134,22 @@ index 7bff90cf6f55eb9a037e66b2a922210b44ed7339..045057704ed788bd020c101d97921141
      }
  
      public void getEntities(final Entity except, final AABB box, final List<Entity> into, final Predicate<? super Entity> predicate) {
+diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
+index 8578f2c0e4f2dbb259e9a876b88d2cb37821861b..6994d87b4ce41aea26ed0c82cf576910f593a392 100644
+--- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
++++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
+@@ -1100,6 +1100,9 @@ public final class ChunkHolderManager {
+     }
+ 
+     public PoiChunk loadPoiChunk(final int chunkX, final int chunkZ) {
++        if (io.papermc.paper.swift.async.SwiftAsync.parallel && io.papermc.paper.swift.async.SwiftAsync.isWorker()) { // Swift - async entities: chunk holders are created on the main thread (Leaf's chunk map is single-threaded)
++            return io.papermc.paper.swift.async.SwiftAsync.callOnMain(() -> this.loadPoiChunk(chunkX, chunkZ));
++        }
+         TickThread.ensureTickThread(this.world, chunkX, chunkZ, "Cannot create poi chunk off-main");
+         PoiChunk ret;
+ 
 diff --git a/net/minecraft/server/level/ServerChunkCache.java b/net/minecraft/server/level/ServerChunkCache.java
-index ef53d4d17222a882dd3d33575096c864a0a00a06..4335daae7ac48a1ad533170b83dff5e63787d15c 100644
+index 1f5339eff76c61cb2cd60eb76b2f59c98bd05dbd..f5cc29830a26b303185164d3fadfbac2de2dc0aa 100644
 --- a/net/minecraft/server/level/ServerChunkCache.java
 +++ b/net/minecraft/server/level/ServerChunkCache.java
 @@ -104,6 +104,9 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
@@ -213,7 +227,7 @@ index c7aca4fb8fbfea24d59559730c68365ec33bf548..a3b2a371e427e1ffb0a194b0d9c54eea
  
      private Explosion.BlockInteraction getDestroyType(final GameRule<Boolean> gameRule) {
 diff --git a/net/minecraft/world/entity/Entity.java b/net/minecraft/world/entity/Entity.java
-index cfcc9945712e43ecd1834a2f04d878ba5520d779..77b55205550c003baa7cd1adbd572186d47dc84e 100644
+index 40bc2cec8a5de5234f90e5d8fe08c63470fb2f44..951eb1bdcda9418e99fc9ce62839aec719134051 100644
 --- a/net/minecraft/world/entity/Entity.java
 +++ b/net/minecraft/world/entity/Entity.java
 @@ -5059,11 +5059,12 @@ public abstract class Entity
@@ -233,7 +247,7 @@ index cfcc9945712e43ecd1834a2f04d878ba5520d779..77b55205550c003baa7cd1adbd572186
  
      public ChunkPos chunkPosition() {
 diff --git a/net/minecraft/world/entity/LivingEntity.java b/net/minecraft/world/entity/LivingEntity.java
-index a0d10e4c3f78128029125bae8e8e476208f28d42..f5c999d5fb3870facae5a998fc758700e5a9b474 100644
+index 741dd904a1bdaa094d066c890a085cbd7f2c1a4f..b56548c7c87e624271a1653da47b298915c9eedf 100644
 --- a/net/minecraft/world/entity/LivingEntity.java
 +++ b/net/minecraft/world/entity/LivingEntity.java
 @@ -1440,6 +1440,7 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
@@ -497,7 +511,7 @@ index ab49bb83b51a3ac210f4c51ec48c11036912149e..9a1da7958b009a936c7152a7f866682a
      }
  
 diff --git a/net/minecraft/world/level/block/entity/BeehiveBlockEntity.java b/net/minecraft/world/level/block/entity/BeehiveBlockEntity.java
-index c91631e7544dd913e03e5c46d85f0250389d4082..393c6c8ebe5aa4cc9cdef5db4b979989ba5b8f8e 100644
+index 6d154b482f9f22676dae0123d613fd6c1088a87b..b5847072ee74515886e27b1b42de7a045058722e 100644
 --- a/net/minecraft/world/level/block/entity/BeehiveBlockEntity.java
 +++ b/net/minecraft/world/level/block/entity/BeehiveBlockEntity.java
 @@ -172,6 +172,7 @@ public class BeehiveBlockEntity extends BlockEntity {

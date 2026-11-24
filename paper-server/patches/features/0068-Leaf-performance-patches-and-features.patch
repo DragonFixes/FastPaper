@@ -718,7 +718,7 @@ index 45c927417d34ddd48c92116efd9b5777bfc52e35..8b987ca4e1db327f42806083c25e7583
      public static final int GENERATED_TICKET_LEVEL = ChunkHolderManager.FULL_LOADED_TICKET_LEVEL;
      public static final int LOADED_TICKET_LEVEL = ChunkTaskScheduler.getTicketLevel(ChunkStatus.EMPTY);
 diff --git a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
-index 8ff8974a1d251e609eeb746c98d145d2ff70693c..9ee7f9354911dd44442c848229abb495377e9409 100644
+index 8aa4d3604d9cbe75cea6600872dccb43a172f9e7..53d592179f4e48f68dd1d6798b393fd101382c5a 100644
 --- a/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
 +++ b/ca/spottedleaf/moonrise/patches/chunk_system/scheduling/ChunkHolderManager.java
 @@ -81,6 +81,7 @@ public final class ChunkHolderManager {
@@ -780,7 +780,7 @@ index 8ff8974a1d251e609eeb746c98d145d2ff70693c..9ee7f9354911dd44442c848229abb495
          this.chunkHolders.put(position, current);
  
  
-@@ -1189,7 +1206,11 @@ public final class ChunkHolderManager {
+@@ -1192,7 +1209,11 @@ public final class ChunkHolderManager {
          this.autoSaveQueue.remove(holder);
          ((ChunkSystemServerChunkCache)this.world.getChunkSource()).moonrise$chunkHolderUnload(holder);
          PlatformHooks.get().onChunkHolderDelete(this.world, holder.vanillaChunkHolder);
