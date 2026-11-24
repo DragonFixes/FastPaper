@@ -111,4 +111,84 @@ final class SwiftBrainLoopTests {
             ns[0], ns[1], String.format("%.2f", (double) ns[0] / Math.max(1, ns[1])));
         helper.succeed();
     }
+
+    /** FastPaper brain switches 0059-0063, in patch order. */
+    private static final String[] BRAIN_SWITCHES = {"lookInteractTypeFirst", "behaviorRateCache", "flatMemoryCheck", "gateIndexLoop", "brainDirectDispatch"};
+
+    private static void setBrainSwitch(final int index, final boolean on) {
+        switch (index) {
+            case 0 -> net.minecraft.world.entity.ai.behavior.SetLookAndInteract.SWIFT_TYPE_FIRST = on;
+            case 1 -> net.minecraft.world.entity.ai.behavior.Behavior.SWIFT_RATE_CACHE = on;
+            case 2 -> net.minecraft.world.entity.ai.behavior.Behavior.SWIFT_FLAT_MEMORY_CHECK = on;
+            case 3 -> net.minecraft.world.entity.ai.behavior.GateBehavior.SWIFT_GATE_INDEX_LOOP = on;
+            case 4 -> io.papermc.paper.swift.entity.SwiftBehaviors.enabled = on;
+            default -> throw new IllegalArgumentException();
+        }
+    }
+
+    /** Variant 0: every brain switch off; 1: all on; 2 + i: all on except switch i. */
+    private static void setBrainVariant(final int variant) {
+        for (int i = 0; i < BRAIN_SWITCHES.length; i++) {
+            setBrainSwitch(i, variant != 0 && variant != 2 + i);
+        }
+    }
+
+    /**
+     * Optional: brain tick cost for 150 crowded villagers with the FastPaper brain switches (0059-0063) all
+     * off, all on, and all on but one (that switch's share of the gain).
+     */
+    @SuppressWarnings("unchecked")
+    static void benchSwitches(final GameTestHelper helper) {
+        final List<Villager> villagers = new ArrayList<>();
+        for (int i = 0; i < 150; i++) {
+            final Villager v = helper.spawn(EntityTypes.VILLAGER, new BlockPos(1 + i % 7, 1, 1 + (i / 7) % 7));
+            v.setNoAi(true);
+            villagers.add(v);
+        }
+        final boolean[] was = {
+            net.minecraft.world.entity.ai.behavior.SetLookAndInteract.SWIFT_TYPE_FIRST,
+            net.minecraft.world.entity.ai.behavior.Behavior.SWIFT_RATE_CACHE,
+            net.minecraft.world.entity.ai.behavior.Behavior.SWIFT_FLAT_MEMORY_CHECK,
+            net.minecraft.world.entity.ai.behavior.GateBehavior.SWIFT_GATE_INDEX_LOOP,
+            io.papermc.paper.swift.entity.SwiftBehaviors.enabled
+        };
+        final int variants = 2 + BRAIN_SWITCHES.length;
+        final long[][] rounds = new long[variants][7];
+        try {
+            for (int warm = 0; warm < 30 * variants; warm++) {
+                setBrainVariant(warm % variants);
+                for (final Villager v : villagers) {
+                    ((Brain<Villager>) v.getBrain()).tick(helper.getLevel(), v);
+                }
+            }
+            for (int round = 0; round < 7; round++) {
+                for (int variant = 0; variant < variants; variant++) {
+                    setBrainVariant(variant);
+                    final long t0 = System.nanoTime();
+                    for (int it = 0; it < 40; it++) {
+                        for (final Villager v : villagers) {
+                            ((Brain<Villager>) v.getBrain()).tick(helper.getLevel(), v);
+                        }
+                    }
+                    rounds[variant][round] = (System.nanoTime() - t0) / (40L * villagers.size());
+                }
+            }
+        } finally {
+            for (int i = 0; i < was.length; i++) {
+                setBrainSwitch(i, was[i]);
+            }
+        }
+        final long[] ns = new long[variants];
+        for (int v = 0; v < variants; v++) {
+            java.util.Arrays.sort(rounds[v]);
+            ns[v] = rounds[v][3];
+        }
+        final StringBuilder without = new StringBuilder();
+        for (int i = 0; i < BRAIN_SWITCHES.length; i++) {
+            without.append(String.format(", without %s %d ns", BRAIN_SWITCHES[i], ns[2 + i]));
+        }
+        LoggerFactory.getLogger("SwiftGameTests").info("[SwiftGameTests] villager brain tick, FastPaper brain switches: all off {} ns, all on {} ns ({}x){}",
+            ns[0], ns[1], String.format("%.2f", (double) ns[0] / Math.max(1, ns[1])), without);
+        helper.succeed();
+    }
 }
