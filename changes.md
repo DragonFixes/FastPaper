@@ -39,6 +39,11 @@ exception to the "same gameplay" rule and is off by default (see its section).
 | 0054 | Box searches (pushing, `getEntities`) read entity boxes from flat copies, same order | `swift.packedBoxes` |
 | 0057 | Region files (chunks, entities, POI) are compressed by libdeflate through FFM, same zlib format | `swift.nativeDeflate` |
 | 0058 | Inside-block effects (fire, water, powder snow ...) skip their per-entity flush when nothing was collected | `swift.insideEffectSkipEmpty` |
+| 0059 | Villagers/piglins looking for a nearby player check the entity type before the distance | `swift.lookInteractTypeFirst` |
+| 0060 | Brain behaviours remember their Paper tick-rate setting instead of looking it up every tick | `swift.behaviorRateCache` |
+| 0061 | Brain behaviours check their required memories from a flat array | `swift.flatMemoryCheck` |
+| 0062 | Grouped brain behaviours loop over their children by index | `swift.gateIndexLoop` |
+| 0063 | Brain loops call behaviours through their class, so the JIT can inline them | `swift.brainDirectDispatch` |
 
 The numbers below come from spark profiles of real servers (ms of main-thread time per tick) and from
 benchmarks in the test suite.
@@ -601,6 +606,47 @@ normal mobs on a random field of fire, water, lava, powder snow, cobwebs, berrie
 
 **Not covered:** the estimate for moving mobs, and parallel entity ticking (0045) was not run separately
 (the collector belongs to one entity, so no thread shares it).
+
+---
+
+## 0059-0063: villager brains do less work per tick (FastPaper)
+
+Found in a spark profile of a live server with a large villager population and parallel entity ticking:
+villagers were about 85% of all entity time and their brain tick about 73%. Each of the five changes below
+reaches the same answer with less work and has its own switch.
+
+**0059: look-and-interact checks the type first.** Every tick, villagers (and piglins) look for a player
+within 4 blocks among everything their sensor saw (`SetLookAndInteract`). The filter computed the distance to
+every neighbour before checking whether it was a player at all, so in a crowd of villagers almost every
+distance was wasted (about 96 s of the 540 s profile). The type is now checked first. Both checks have no side
+effects, so the same entity is found and the same entities reach the line-of-sight test in the same order.
+
+**0060: behaviours cache Paper's tick-rate setting.** Paper's `tick-rates.behavior` setting was looked up in a
+`HashBasedTable` on every `Behavior#tryStart` (about 26 s). Each behaviour now keeps the resolved value for its
+(table, entity type) pair. A config reload deserialises a new table, so a reload is picked up immediately. The
+three values sit in one immutable holder, so parallel ticking never sees a half-written cache.
+
+**0061: required memories from a flat array.** `Behavior#hasRequiredMemories` walked an `ImmutableMap`'s entry
+set through iterator objects on every start attempt (about 29 s). The entries are copied into two arrays once,
+in the map's own order, and checked with the same early exit. Maps that are not an `ImmutableMap` keep the map walk.
+
+**0062: gate behaviours loop by index.** `GateBehavior` (villager work, rest, play and idle packages) visited
+its children through Guava's transforming iterator and a stream (about 70 s). It now reads the same entry list
+by index in the same order. "None running, so stop" is still checked in a second pass after every child has
+ticked. Shuffling is unchanged, so the same random rolls are used.
+
+**0063: direct calls instead of interface calls.** The brain loops call `getStatus`, `tryStart` and `tickOrStop` on
+dozens of behaviour classes from one call site, which the JIT cannot inline. Each call became an interface
+table lookup (`itable stub`, about 15% of villager tick time). Nearly every behaviour is a `OneShot`, `Behavior`
+or `GateBehavior`, whose versions are final (or never overridden), so the loop tests the class and calls the
+method directly. Anything else still goes through the interface. The same methods run (`SwiftBehaviors`).
+
+**Gain:** villager brain tick with 150 crowded villagers: 3378 ns -> 2442 ns (1.38x, `bench_brain_switches`).
+With all on but one, the brain tick is slower by: 0059 +292 ns, 0060 +359 ns, 0061 +164 ns, 0062 +577 ns, 0063 +708 ns.
+
+**Tests:** the whole suite (72 tests) passes with all switches on, with the five switches off, with parallel
+entity ticking three times, and with `-Dswift.verify=true` (56.9 million checks, 0 mismatches).
+0059, 0060 and 0061 compute the original answer next to the cached/fast one under shadow verify.
 
 ---
 
