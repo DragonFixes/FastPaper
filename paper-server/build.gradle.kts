@@ -364,6 +364,17 @@ tasks.registerRunTask("runPaperclip") {
     mainClass.set(null as String?)
 }
 
+// Server jar name: <project>-<mc-version>-<git-hash>-server.jar, e.g. fastpaper-26.3-59d2c636-server.jar
+tasks.createPaperclipJar {
+    val projectName = rootProject.name
+    val mcVersion = rootProject.providers.gradleProperty("mcVersion").map { it.trim() }
+    val gitHash = Git(rootProject.layout.projectDirectory.path)
+        .exec(providers, "rev-parse", "--short=8", "HEAD").map { it.trim() }
+    outputZip.set(layout.buildDirectory.file(mcVersion.zip(gitHash) { mc, hash ->
+        "libs/$projectName-$mc-$hash-server.jar"
+    }))
+}
+
 fill {
     project("paper")
     versionFamily(paperweight.minecraftVersion.map { it.split(".", "-").takeWhile { part -> part.toIntOrNull() != null }.take(2).joinToString(".") })

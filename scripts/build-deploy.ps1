@@ -6,7 +6,7 @@
 
 .DESCRIPTION
     Removes every *.jar from the deploy folder, applies the patches, builds the
-    Paperclip server jar with Gradle and copies the newest *paperclip*.jar from
+    Paperclip server jar with Gradle and copies the newest *-server.jar from
     paper-server\build\libs into the deploy folder. The deploy folder is
     created when missing. Exits non-zero when the build fails or no jar is
     produced.
@@ -76,14 +76,14 @@ try {
     Invoke-Gradle @('createPaperclipJar')
 
     if ($DryRun) {
-        Write-Host "Would copy the newest *paperclip*.jar from $libs to $deploy"
+        Write-Host "Would copy the newest *-server.jar from $libs to $deploy"
         exit 0
     }
 
-    # The jar base name follows rootProject.name, so match on the paperclip suffix only.
-    $jar = Get-ChildItem -Path $libs -Filter '*paperclip*.jar' -File -ErrorAction SilentlyContinue |
+    # createPaperclipJar writes <project>-<mc-version>-<git-hash>-server.jar.
+    $jar = Get-ChildItem -Path $libs -Filter '*-server.jar' -File -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if (-not $jar) { throw "No *paperclip*.jar found in $libs" }
+    if (-not $jar) { throw "No *-server.jar found in $libs" }
     if ($jar.LastWriteTime -lt $buildStart) {
         Write-Warning "$($jar.Name) is older than this build; Gradle may have reused a cached output."
     }
