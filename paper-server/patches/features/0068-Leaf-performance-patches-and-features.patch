@@ -1148,10 +1148,10 @@ index 922c95a3bbdc27ff86ce74ecedb0bc63d4018f93..91fa7ab65369ee06dcd4c05a887bcf4c
      }
 diff --git a/io/papermc/paper/entity/temptation/GlobalTemptationLookup.java b/io/papermc/paper/entity/temptation/GlobalTemptationLookup.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..3a9fb2524df84fe332eb94c3efe22876338d08da
+index 0000000000000000000000000000000000000000..facf879e0ab52278593be00084b0484de626069a
 --- /dev/null
 +++ b/io/papermc/paper/entity/temptation/GlobalTemptationLookup.java
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,116 @@
 +package io.papermc.paper.entity.temptation;
 +
 +import java.util.ArrayList;
@@ -1216,23 +1216,17 @@ index 0000000000000000000000000000000000000000..3a9fb2524df84fe332eb94c3efe22876
 +    }
 +
 +    // Leaf start - Paper PR: Optimise temptation lookups changes
-+    private final BitSet[] precalculatedTemptItems;
-+    private final BitSet calculatedThisTick = new BitSet();
++    // One result per predicate per tick, null until first computed. Mobs of one world may tick on several
++    // threads at once, so a result is built privately and published with compareAndSet; once published it is
++    // only read.
++    private final java.util.concurrent.atomic.AtomicReferenceArray<BitSet> precalculatedTemptItems = new java.util.concurrent.atomic.AtomicReferenceArray<>(registeredPredicateCounter);
 +    private static final net.minecraft.server.level.ServerPlayer[] EMPTY_PLAYERS = {};
 +    private net.minecraft.server.level.ServerPlayer[] players = EMPTY_PLAYERS;
 +
-+    {
-+        precalculatedTemptItems = new BitSet[registeredPredicateCounter];
-+        for (int i = 0; i < precalculatedTemptItems.length; i++) {
-+            this.precalculatedTemptItems[i] = new BitSet();
-+        }
-+    }
-+
 +    public void tick(final net.minecraft.server.level.ServerLevel world) {
 +        for (int i = 0; i < registeredPredicateCounter; i++) {
-+            this.precalculatedTemptItems[i].clear();
++            this.precalculatedTemptItems.set(i, null);
 +        }
-+        this.calculatedThisTick.clear();
 +
 +        int count = 0;
 +        final net.minecraft.server.level.ServerPlayer[] array = world.players().toArray(EMPTY_PLAYERS);
@@ -1247,17 +1241,26 @@ index 0000000000000000000000000000000000000000..3a9fb2524df84fe332eb94c3efe22876
 +    }
 +    // Leaf end - Paper PR: Optimise temptation lookups changes
 +
-+    public boolean isCalculated(final int index) {
-+        return this.calculatedThisTick.get(index);
-+    }
-+
-+    public void setCalculated(final int index) {
-+        this.calculatedThisTick.set(index);
-+    }
-+
-+    public BitSet getBitSet(final int index) {
-+        // Leaf start - Paper PR: Optimise temptation lookups changes
-+        return this.precalculatedTemptItems[index];
++    // Leaf start - Paper PR: Optimise temptation lookups changes
++    /**
++     * The players of {@link #players()} that pass {@code test}, as bits by index, computed at most once per
++     * tick per predicate. The returned set must not be modified.
++     */
++    public BitSet getOrCompute(final int index, final Predicate<net.minecraft.server.level.ServerPlayer> test) {
++        BitSet result = this.precalculatedTemptItems.get(index);
++        if (result == null) {
++            final net.minecraft.server.level.ServerPlayer[] players = this.players;
++            result = new BitSet(players.length);
++            for (int i = 0; i < players.length; i++) {
++                if (test.test(players[i])) {
++                    result.set(i);
++                }
++            }
++            if (!this.precalculatedTemptItems.compareAndSet(index, null, result)) {
++                result = this.precalculatedTemptItems.get(index);
++            }
++        }
++        return result;
 +    }
 +
 +    public net.minecraft.server.level.ServerPlayer[] players() {
@@ -5264,7 +5267,7 @@ index 800843c5c63fa4476a58d8119928e1286f98d922..03cebc986e7dd54d8eb0ef1b6c667754
      protected boolean isValidTarget(final LevelReader level, final BlockPos pos) {
          ChunkAccess chunk = level.getChunkIfLoadedImmediately(pos.getX() >> 4, pos.getZ() >> 4); // Paper - Prevent AI rules from loading chunks
 diff --git a/net/minecraft/world/entity/ai/goal/TemptGoal.java b/net/minecraft/world/entity/ai/goal/TemptGoal.java
-index 016167a6ff90dfe5a2e66596eaab2c8f2775c016..7ce0b611c0c2a517f3a0dabe58c63cd885b8f443 100644
+index 016167a6ff90dfe5a2e66596eaab2c8f2775c016..d6615ae76804de39a2b5c289031691f0e40860f2 100644
 --- a/net/minecraft/world/entity/ai/goal/TemptGoal.java
 +++ b/net/minecraft/world/entity/ai/goal/TemptGoal.java
 @@ -26,9 +26,10 @@ public class TemptGoal extends Goal {
@@ -5279,7 +5282,7 @@ index 016167a6ff90dfe5a2e66596eaab2c8f2775c016..7ce0b611c0c2a517f3a0dabe58c63cd8
  
      public TemptGoal(final PathfinderMob mob, final double speedModifier, final Predicate<ItemStack> items, final boolean canScare) {
          this((Mob)mob, speedModifier, items, canScare, 2.5);
-@@ -39,23 +40,65 @@ public class TemptGoal extends Goal {
+@@ -39,23 +40,59 @@ public class TemptGoal extends Goal {
      }
  
      private TemptGoal(final Mob mob, final double speedModifier, final Predicate<ItemStack> items, final boolean canScare, final double stopDistance) {
@@ -5308,15 +5311,9 @@ index 016167a6ff90dfe5a2e66596eaab2c8f2775c016..7ce0b611c0c2a517f3a0dabe58c63cd8
 +            if (this.globalTemptationLookupIndex != -1) {
 +                final net.minecraft.server.level.ServerLevel level = getServerLevel(this.mob);
 +                final io.papermc.paper.entity.temptation.GlobalTemptationLookup lookup = level.getTemptGoalLookup();
-+                final java.util.BitSet lookupBitSet = lookup.getBitSet(this.globalTemptationLookupIndex);
 +                final net.minecraft.server.level.ServerPlayer[] players = lookup.players(); // Leaf - Paper PR: Optimise temptation lookups changes
-+                // Check if the lookup needs to be computed this tick. Do so for all players if needed.
-+                if (!lookup.isCalculated(this.globalTemptationLookupIndex)) {
-+                    for (int i = 0; i < players.length; i++) { // Leaf - Paper PR: Optimise temptation lookups changes
-+                        lookupBitSet.set(i, shouldFollow(players[i])); // Leaf - Paper PR: Optimise temptation lookups changes
-+                    }
-+                    lookup.setCalculated(this.globalTemptationLookupIndex);
-+                }
++                // Computed once per tick for all players, by the first mob that needs it.
++                final java.util.BitSet lookupBitSet = lookup.getOrCompute(this.globalTemptationLookupIndex, this::shouldFollow); // Leaf - Paper PR: Optimise temptation lookups changes
 +                double d = -1.0;
 +                net.minecraft.server.level.ServerPlayer nearestPlayer = null;
 +                // Only iterate over players that passed #shouldFollow either in the prior computation or another goals canUse check.
@@ -5606,7 +5603,7 @@ index 834916d683c03fda057218ec2f562f41139f2b02..ccb20f9b483364422151c09f3fda48d0
      public static final SensorType<FrogAttackablesSensor> FROG_ATTACKABLES = register("frog_attackables", FrogAttackablesSensor::new);
      public static final SensorType<IsInWaterSensor> IS_IN_WATER = register("is_in_water", IsInWaterSensor::new);
 diff --git a/net/minecraft/world/entity/ai/sensing/TemptingSensor.java b/net/minecraft/world/entity/ai/sensing/TemptingSensor.java
-index 70e5ffafdf8e78efb36c4480c0abe515dc35c62f..fbb3ed23f7cc9ca2e8af39258170ab73ceaa9610 100644
+index 70e5ffafdf8e78efb36c4480c0abe515dc35c62f..d7c75b1a7753091801e8abc765cb6ccb9eaea364 100644
 --- a/net/minecraft/world/entity/ai/sensing/TemptingSensor.java
 +++ b/net/minecraft/world/entity/ai/sensing/TemptingSensor.java
 @@ -21,9 +21,11 @@ import net.minecraft.world.item.ItemStack;
@@ -5622,7 +5619,7 @@ index 70e5ffafdf8e78efb36c4480c0abe515dc35c62f..fbb3ed23f7cc9ca2e8af39258170ab73
      }
  
      public static TemptingSensor forAnimal() {
-@@ -32,12 +34,50 @@ public class TemptingSensor extends Sensor<PathfinderMob> {
+@@ -32,12 +34,43 @@ public class TemptingSensor extends Sensor<PathfinderMob> {
  
      private TemptingSensor(final BiPredicate<PathfinderMob, ItemStack> temptations) {
          this.temptations = temptations;
@@ -5637,16 +5634,9 @@ index 70e5ffafdf8e78efb36c4480c0abe515dc35c62f..fbb3ed23f7cc9ca2e8af39258170ab73
 +        Player targetPlayer;
 +        if (this.globalTemptationLookupIndex != -1) {
 +            final io.papermc.paper.entity.temptation.GlobalTemptationLookup lookup = level.getTemptGoalLookup();
-+            final java.util.BitSet lookupBitSet = lookup.getBitSet(this.globalTemptationLookupIndex);
 +            final net.minecraft.server.level.ServerPlayer[] players = lookup.players(); // Leaf - Paper PR: Optimise temptation lookups changes
-+            // Check if the lookup needs to be computed this tick. Do so for all players if needed.
-+            if (!lookup.isCalculated(this.globalTemptationLookupIndex)) {
-+                for (int i = 0; i < players.length; i++) { // Leaf - Paper PR: Optimise temptation lookups changes
-+                    final net.minecraft.server.level.ServerPlayer serverPlayer = players[i]; // Leaf - Paper PR: Optimise temptation lookups changes
-+                    lookupBitSet.set(i, net.minecraft.world.entity.EntitySelector.NO_SPECTATORS.test(serverPlayer) && this.playerHoldingTemptation(body, serverPlayer)); // check on update
-+                }
-+                lookup.setCalculated(this.globalTemptationLookupIndex);
-+            }
++            // Computed once per tick for all players, by the first mob that needs it.
++            final java.util.BitSet lookupBitSet = lookup.getOrCompute(this.globalTemptationLookupIndex, serverPlayer -> net.minecraft.world.entity.EntitySelector.NO_SPECTATORS.test(serverPlayer) && this.playerHoldingTemptation(body, serverPlayer)); // check on update
 +            double d = -1.0;
 +            net.minecraft.server.level.ServerPlayer nearestPlayer = null;
 +            // Only iterate over players that passed #shouldFollow either in the prior computation or another goals canUse check.
@@ -5673,7 +5663,7 @@ index 70e5ffafdf8e78efb36c4480c0abe515dc35c62f..fbb3ed23f7cc9ca2e8af39258170ab73
          // Leaf start - Remove stream in TemptingSensor
          List<net.minecraft.server.level.ServerPlayer> allPlayers = level.players();
          List<Player> players = new java.util.ArrayList<>();
-@@ -52,7 +92,13 @@ public class TemptingSensor extends Sensor<PathfinderMob> {
+@@ -52,7 +85,13 @@ public class TemptingSensor extends Sensor<PathfinderMob> {
          // Leaf end - Remove stream in TemptingSensor
          if (!players.isEmpty()) {
              players.sort(Comparator.comparingDouble(body::distanceToSqr)); // Leaf - Remove stream in TemptingSensor
@@ -8547,7 +8537,7 @@ index e355f7c04aefed172776edfccc584f112808e3d7..24e8ebd447ad7a232c39d5cd17c9dd80
          final ChunkPos pos, final Structure structure, final StructurePlacement placement, final boolean createReference
      ) {
 diff --git a/net/minecraft/world/level/biome/BiomeManager.java b/net/minecraft/world/level/biome/BiomeManager.java
-index 7b3c72f50ef1b7d71a1a007f634808b2cd972bc4..95fa5539748af619762a70746894edac6753eaba 100644
+index 7b3c72f50ef1b7d71a1a007f634808b2cd972bc4..f54104d6e6703a9431e6ed2b4f9b12d8d10bdd77 100644
 --- a/net/minecraft/world/level/biome/BiomeManager.java
 +++ b/net/minecraft/world/level/biome/BiomeManager.java
 @@ -16,10 +16,23 @@ public class BiomeManager {
@@ -8574,7 +8564,7 @@ index 7b3c72f50ef1b7d71a1a007f634808b2cd972bc4..95fa5539748af619762a70746894edac
      }
  
      public static long obfuscateSeed(final long seed) {
-@@ -35,10 +48,34 @@ public class BiomeManager {
+@@ -35,10 +48,36 @@ public class BiomeManager {
      }
  
      public Holder<Biome> getBiome(final int blockX, final int blockY, final int blockZ) {
@@ -8582,7 +8572,9 @@ index 7b3c72f50ef1b7d71a1a007f634808b2cd972bc4..95fa5539748af619762a70746894edac
 +    }
 +    // Leaf start - cache getBiome
 +    public Holder<Biome> getBiomeCached(final net.minecraft.world.level.chunk.@org.jspecify.annotations.Nullable LevelChunk chunk, final BlockPos pos) {
-+        if (biomeCache == null) {
++        // The cache's two arrays are written without synchronisation, so it is only used while one thread
++        // ticks the world; during parallel entity ticking a lookup could pair one position with another's biome.
++        if (biomeCache == null || io.papermc.paper.swift.async.SwiftAsync.parallel) {
 +            return getBiome(pos);
 +        }
 +        int xMinus2 = pos.getX() - 2;
@@ -8612,7 +8604,7 @@ index 7b3c72f50ef1b7d71a1a007f634808b2cd972bc4..95fa5539748af619762a70746894edac
          int x = xMinus2 >> 2; // BlockPos to BiomePos
          int y = yMinus2 >> 2;
          int z = zMinus2 >> 2;
-@@ -94,13 +131,16 @@ public class BiomeManager {
+@@ -94,13 +133,16 @@ public class BiomeManager {
                  smallestDist = biomeDist;
              }
          }
@@ -8634,7 +8626,7 @@ index 7b3c72f50ef1b7d71a1a007f634808b2cd972bc4..95fa5539748af619762a70746894edac
  
      public Holder<Biome> getNoiseBiomeAtPosition(final double x, final double y, final double z) {
          int quartX = QuartPos.fromBlock(Mth.floor(x));
-@@ -138,7 +178,14 @@ public class BiomeManager {
+@@ -138,7 +180,14 @@ public class BiomeManager {
          return Mth.square(distanceZ + fiddleZ) + Mth.square(distanceY + fiddleY) + Mth.square(distanceX + fiddleX);
      }
  
