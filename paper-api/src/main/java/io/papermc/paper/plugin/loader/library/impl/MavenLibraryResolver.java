@@ -139,7 +139,7 @@ public class MavenLibraryResolver implements ClassPathLibrary {
                 }
                 // Leaf end - Configurable LibraryLoader maven repos
             LOGGER.warn(
-                "Use of Maven Central as a CDN is against the Maven Central Terms of Service. Use MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR instead. DO NOT report this to Paper or Leaf! Please contact plugin's support to adapt this change.", // Leaf - Better warning message for discouraging Maven Central as CDN
+                "Use of Maven Central as a CDN is against the Maven Central Terms of Service. Use MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR instead. DO NOT report this to FastPaper or Paper! Please contact plugin's support to adapt this change.", // Leaf - Better warning message for discouraging Maven Central as CDN
                 new RuntimeException("Plugin used Maven Central for library resolution (%s)".formatted(remoteRepository.toString()))
             );
                 // Leaf start - Configurable LibraryLoader maven repos

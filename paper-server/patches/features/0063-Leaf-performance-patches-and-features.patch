@@ -13844,21 +13844,23 @@ index d75fb5e77eff27d86135ed7d605dbc250b660f7d..26e1b78d50c10987b03ace8e275a38c1
      }
  
 diff --git a/org/purpurmc/purpur/task/BossBarTask.java b/org/purpurmc/purpur/task/BossBarTask.java
-index 3c3d4cd52db93b97a40321030a70ebc282c9636b..a183d3aaba873a9d9d66184bd6b2d5649200a492 100644
+index 3c3d4cd52db93b97a40321030a70ebc282c9636b..8976463ab41c8db1d877c116888991883fe89f2d 100644
 --- a/org/purpurmc/purpur/task/BossBarTask.java
 +++ b/org/purpurmc/purpur/task/BossBarTask.java
-@@ -89,33 +89,21 @@ public abstract class BossBarTask extends BukkitRunnable {
+@@ -89,33 +89,23 @@ public abstract class BossBarTask extends BukkitRunnable {
      }
  
      public static void startAll() {
 -        RamBarTask.instance().start();
 -        TPSBarTask.instance().start();
++        RamBarTask.instance().start(); // FastPaper - no bar is shown, but /ram reads the values this task refreshes
          CompassTask.instance().start();
      }
  
      public static void stopAll() {
 -        RamBarTask.instance().stop();
 -        TPSBarTask.instance().stop();
++        RamBarTask.instance().stop(); // FastPaper - /ram
          CompassTask.instance().stop();
      }
  
