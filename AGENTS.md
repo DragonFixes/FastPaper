@@ -13,7 +13,7 @@
 FastPaper is a performance fork of [Paper](https://github.com/PaperMC/Paper)
 (Minecraft 26.3). It is not Paper and is not supported by PaperMC. Its
 performance work comes from the Swift patches by Swift-ality; the rule for
-those is that gameplay stays identical (see `changes.md`).
+those is that gameplay stays identical (see `CHANGES.md`).
 
 Layout (paperweight):
 
@@ -25,7 +25,7 @@ Layout (paperweight):
 | `paper-server/patches/features/` | Larger feature patches (the numbered Swift patches) |
 | `paper-server/patches/resources/` | Patches to Minecraft resources |
 | `paper-server/src/minecraft/` | Generated, patched Minecraft working tree (its own git repo; created by `applyPatches`) |
-| `changes.md` | Every Swift change: what it does, its `-Dswift.*` switch, measured gain |
+| `CHANGES.md` | Every Swift change: what it does, its `-Dswift.*` switch, measured gain |
 | `docs/` | Design notes and perf candidates |
 | `gametests/` | Gameplay-parity tests (datapacks, network bots, tools) |
 | `scripts/` | Helper scripts (see below) |
@@ -122,7 +122,7 @@ The essentials (on Windows use `.\gradlew.bat`):
    tracked.
 
 Every performance change must keep gameplay identical, have a `-Dswift.*`
-(or FastPaper) switch to turn it off, and be documented in `changes.md`.
+(or FastPaper) switch to turn it off, and be documented in `CHANGES.md`.
 Changes that alter observable behavior must be off by default.
 
 ## Testing

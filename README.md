@@ -18,7 +18,7 @@ Each change can be switched off at startup with a `-D` flag, so it can be disabl
 without a rebuild. A few changes alter tick order (parallel entity ticking, async pathfinding) and
 are off by default.
 
-* [changes.md](changes.md): every change, what it does, its switch, and measured gains
+* [CHANGES.md](CHANGES.md): every change, what it does, its switch, and measured gains
 * [docs/swift-perf-candidates.md](docs/swift-perf-candidates.md): profiled candidates for future work
 * [gametests/README.md](gametests/README.md): the gameplay-parity test suite
 
@@ -34,7 +34,7 @@ Server admins
 ------
 FastPaper runs like a Paper server: start the paperclip jar with `java -jar`. Paper's
 [documentation](https://docs.papermc.io) applies to configuration and plugins, except for the
-FastPaper-specific switches listed in [changes.md](changes.md).
+FastPaper-specific switches listed in [CHANGES.md](CHANGES.md).
 
 ### Commands
 

@@ -100,7 +100,7 @@ public final class SwiftConfig {
             "Swift Paper settings. Restart the server to apply changes.",
             "Each setting is also a Java system property (shown in the comment); -Dswift.<name>=... on the",
             "command line overrides this file.",
-            "Details: changes.md in the Swift Paper repository."));
+            "Details: CHANGES.md in the Swift Paper repository."));
         yaml.options().parseComments(true);
 
         final List<String> applied = new ArrayList<>();
