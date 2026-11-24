@@ -44,6 +44,7 @@ exception to the "same gameplay" rule and is off by default (see its section).
 | 0061 | Brain behaviours check their required memories from a flat array | `swift.flatMemoryCheck` |
 | 0062 | Grouped brain behaviours loop over their children by index | `swift.gateIndexLoop` |
 | 0063 | Brain loops call behaviours through their class, so the JIT can inline them | `swift.brainDirectDispatch` |
+| 0064-0068 | Leaf 26.3 patches (Purpur, Gale, Leaf); **not gameplay-identical**, see their section | Leaf, Gale and Purpur config files |
 
 The numbers below come from spark profiles of real servers (ms of main-thread time per tick) and from
 benchmarks in the test suite.
@@ -650,7 +651,7 @@ entity ticking three times, and with `-Dswift.verify=true` (56.9 million checks,
 
 ---
 
-## 0059-0063: Leaf 26.3 patches (`dev/leaf-patches`)
+## 0064-0068: Leaf 26.3 patches (`dev/leaf-patches`)
 
 Leaf's `ver/26.3` patches ([Winds-Studio/Leaf@60c5729](https://github.com/Winds-Studio/Leaf/tree/60c5729)),
 squashed by origin. Each patch's commit message lists the original Leaf patches and their authors.
