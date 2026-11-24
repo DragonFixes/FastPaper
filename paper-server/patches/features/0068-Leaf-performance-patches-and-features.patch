@@ -2377,7 +2377,7 @@ index 4f2344b6e4fe6aebdbb7ca2ad65365515d8e2424..e3f6bd7b2fb2e0c8e57503cab0656f13
                          }
                      }
 diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
-index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d621f201b5 100644
+index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..1adcc0576308aab07b7ed73c214066f5ebd710c1 100644
 --- a/net/minecraft/server/level/ServerLevel.java
 +++ b/net/minecraft/server/level/ServerLevel.java
 @@ -240,6 +240,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
@@ -2505,19 +2505,18 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
                      }
                  }
              }
-@@ -1062,6 +1108,11 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1062,6 +1108,10 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
      // Paper end - optimise random ticking
  
      private final org.dreeam.leaf.world.DespawnMap despawnMap = new org.dreeam.leaf.world.DespawnMap(); // Leaf - optimize despawn
 +    public final org.dreeam.leaf.world.NatureSpawnChunkMap natureSpawnChunkMap = new org.dreeam.leaf.world.NatureSpawnChunkMap(); // Leaf - optimize mob spawning
 +    public final org.dreeam.leaf.world.RandomTickSystem randomTickSystem = new org.dreeam.leaf.world.RandomTickSystem(); // Leaf - optimize random tick
-+    public final org.dreeam.leaf.world.EntityCollisionCache entityCollisionCache = new org.dreeam.leaf.world.EntityCollisionCache(); // Leaf - cache collision list
 +    public final org.dreeam.leaf.util.FastBitRadixSort fastBitRadixSort = new org.dreeam.leaf.util.FastBitRadixSort(); // Leaf - fast bit radix sort
 +    public final org.dreeam.leaf.world.EntityActivation entityActivation = new org.dreeam.leaf.world.EntityActivation(); // Leaf - optimize entity activation
      public void tickChunk(final LevelChunk chunk, final int tickSpeed) {
          final net.minecraft.world.level.levelgen.BitRandomSource simpleRandom = this.simpleRandom; // Paper - optimise random ticking // Leaf - Faster random generator - upcasting
          ChunkPos chunkPos = chunk.getPos();
-@@ -1070,9 +1121,10 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1070,9 +1120,10 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
          ProfilerFiller profiler = Profiler.get();
          profiler.push("iceandsnow");
  
@@ -2529,7 +2528,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
                  this.tickPrecipitation(this.getBlockRandomPos(minX, 0, minZ, 15));
              }
          }
-@@ -1152,7 +1204,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1152,7 +1203,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
                          // We only need to check blocks that are taller than the minimum step height
                          if (org.purpurmc.purpur.PurpurConfig.smoothSnowAccumulationStep > 0 && currentLayers >= org.purpurmc.purpur.PurpurConfig.smoothSnowAccumulationStep) {
                              int layersValueMin = currentLayers - org.purpurmc.purpur.PurpurConfig.smoothSnowAccumulationStep;
@@ -2538,7 +2537,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
                                  BlockPos blockPosNeighbor = topPos.relative(direction);
                                  BlockState blockStateNeighbor = this.getBlockState(blockPosNeighbor);
                                  if (blockStateNeighbor.is(Blocks.SNOW)) {
-@@ -1451,6 +1503,10 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1451,6 +1502,10 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
          this.emptyTime = 0;
      }
  
@@ -2549,7 +2548,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
      private void tickFluid(final BlockPos pos, final Fluid type) {
          BlockState blockState = this.getBlockState(pos);
          FluidState fluidState = blockState.getFluidState();
-@@ -1478,26 +1534,8 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1478,26 +1533,8 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
  
      }
  
@@ -2576,7 +2575,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
          ProfilerFiller profiler = Profiler.get();
          profiler.push(entity.typeHolder()::getRegisteredName);
          profiler.incrementCounter("tickNonPassenger");
-@@ -1512,13 +1550,6 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1512,13 +1549,6 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
          for (Entity passenger : entity.getPassengers()) {
              this.tickPassenger(entity, passenger, isActive); // Paper - EAR 2
          }
@@ -2590,7 +2589,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
      }
  
      private void tickPassenger(final Entity vehicle, final Entity entity, final boolean isActive) { // Paper - EAR 2
-@@ -1568,6 +1599,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1568,6 +1598,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
      }
      // Paper start - Incremental chunk and player saving
      public void saveIncrementally(final boolean doFull) {
@@ -2598,7 +2597,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
          if (doFull) {
              org.bukkit.Bukkit.getPluginManager().callEvent(new org.bukkit.event.world.WorldSaveEvent(this.getWorld()));
              this.saveLevelData(false);
-@@ -1583,6 +1615,18 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -1583,6 +1614,18 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
      public void save(final @Nullable ProgressListener progressListener, final boolean flush, final boolean noSave, final boolean close) {
          // Paper end - add close param
          ServerChunkCache chunkSource = this.getChunkSource();
@@ -2617,7 +2616,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
          if (!noSave) {
              new org.bukkit.event.world.WorldSaveEvent(this.getWorld()).callEvent(); // CraftBukkit
              if (progressListener != null) {
-@@ -2712,8 +2756,14 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -2712,8 +2755,14 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
  
      @Override
      public WorldBorder getWorldBorder() {
@@ -2632,7 +2631,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
          return worldBorder;
      }
  
-@@ -2961,6 +3011,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -2961,6 +3010,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
  
          for (TickingBlockEntity ticker : this.blockEntityTickers) {
              BlockPos blockPos = ticker.getPos();
@@ -2640,7 +2639,7 @@ index 20e5d7b80fef1d5469afdeefa573e1329e1644b6..949b3a743a164ff1b1cfc63fe5a273d6
              csvOutput.writeRow(blockPos.getX(), blockPos.getY(), blockPos.getZ(), ticker.getType());
          }
      }
-@@ -3418,4 +3469,11 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+@@ -3418,4 +3468,11 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
          return (System.nanoTime() - MinecraftServer.SERVER_INIT) / (java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(50L));
      }
      // Paper end - lag compensation
@@ -3179,7 +3178,7 @@ index f1c57bc4310784999784d77678ea88912d6e41db..581aea02f6ed53d072caf47ddc051b49
  
      public static boolean hasWaterBreathing(final LivingEntity mob) {
 diff --git a/net/minecraft/world/entity/Entity.java b/net/minecraft/world/entity/Entity.java
-index 1110c0bc46a1bbb2478bc67abc129d3784b974ae..020c09734490653def55032c5ccdc012345e13d8 100644
+index 1110c0bc46a1bbb2478bc67abc129d3784b974ae..14f4e075ddf0da256db4e1fa1b580e246129012e 100644
 --- a/net/minecraft/world/entity/Entity.java
 +++ b/net/minecraft/world/entity/Entity.java
 @@ -166,7 +166,7 @@ public abstract class Entity
@@ -3501,7 +3500,7 @@ index 1110c0bc46a1bbb2478bc67abc129d3784b974ae..020c09734490653def55032c5ccdc012
          }
  
 -        final List<AABB> entityAABBs = new ArrayList<>();
-+        org.dreeam.leaf.world.EntityCollisionCache entityCollisionCache = ((ServerLevel) this.level).entityCollisionCache; // Leaf - cache collision list
++        org.dreeam.leaf.world.EntityCollisionCache entityCollisionCache = org.dreeam.leaf.world.EntityCollisionCache.acquire(); // Leaf - cache collision list
          // Vanilla expands the entity query by maxUpStep: the step logic below tests raised positions, so
          // entities fully above this entity's hitbox must be fetched for those checks (MC-310289). When
          // there is no horizontal movement the step logic cannot run, so keep the smaller query.
