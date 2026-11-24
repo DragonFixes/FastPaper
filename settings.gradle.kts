@@ -61,8 +61,11 @@ gradle.lifecycle.beforeProject {
     val mcVersion = providers.gradleProperty("mcVersion").get().trim()
     val paperVersionChannel = providers.gradleProperty("channel").get().trim()
     val paperBuildNumber = providers.environmentVariable("BUILD_NUMBER").orNull?.trim()?.toInt()
+    // Local builds keep the "<mc>.build.<n>-<channel>" shape of CI builds, with build 0:
+    // plugins parse Bukkit.getBukkitVersion() as numeric dot-separated parts and fail on
+    // a word such as "local" where a number is expected.
     val versionString = if (paperBuildNumber == null) {
-        "$mcVersion.local-SNAPSHOT"
+        "$mcVersion.build.0-local"
     } else {
         "$mcVersion.build.$paperBuildNumber-${paperVersionChannel.lowercase()}"
     }
