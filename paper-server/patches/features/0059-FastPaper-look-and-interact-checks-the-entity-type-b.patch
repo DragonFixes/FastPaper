@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 19:52:01 -0500
+Subject: [PATCH] FastPaper: look-and-interact checks the entity type before
+ the distance
+
+
+diff --git a/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java b/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java
+index 71b8f9a7d4fe97f56fe1fc03b48e4dcd455ccd1e..b1a3523c2b8618d9b2c57d0d19e42eb63569b89d 100644
+--- a/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java
++++ b/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java
+@@ -8,6 +8,8 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+ import net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities;
+ 
+ public class SetLookAndInteract {
++    public static boolean SWIFT_TYPE_FIRST = Boolean.parseBoolean(System.getProperty("swift.lookInteractTypeFirst", "true")); // FastPaper - look-and-interact type first (not final: tests compare both paths)
++
+     public static BehaviorControl<LivingEntity> create(final EntityType<?> type, final int interactionRange) {
+         int interactionRangeSqr = interactionRange * interactionRange;
+         return BehaviorBuilder.create(
+@@ -19,8 +21,20 @@ public class SetLookAndInteract {
+                 .apply(
+                     i,
+                     (lookTarget, interactionTarget, nearestEntities) -> (level, body, timestamp) -> {
+-                        Optional<LivingEntity> closest = i.<NearestVisibleLivingEntities>get(nearestEntities)
+-                            .findClosest(e -> e.distanceToSqr(body) <= interactionRangeSqr && e.is(type));
++                        // FastPaper start - look-and-interact type first: both checks are pure, so testing the cheap type
++                        // match before the distance finds the same entity and runs the same line-of-sight tests
++                        final NearestVisibleLivingEntities visible = i.<NearestVisibleLivingEntities>get(nearestEntities);
++                        Optional<LivingEntity> closest = SWIFT_TYPE_FIRST
++                            ? visible.findClosest(e -> e.is(type) && e.distanceToSqr(body) <= interactionRangeSqr)
++                            : visible.findClosest(e -> e.distanceToSqr(body) <= interactionRangeSqr && e.is(type));
++                        if (SWIFT_TYPE_FIRST && io.papermc.paper.swift.SwiftVerify.ENABLED) {
++                            io.papermc.paper.swift.SwiftVerify.checked();
++                            final Optional<LivingEntity> vanilla = visible.findClosest(e -> e.distanceToSqr(body) <= interactionRangeSqr && e.is(type));
++                            if (!vanilla.equals(closest)) {
++                                io.papermc.paper.swift.SwiftVerify.mismatch("SetLookAndInteract", closest + " vs " + vanilla + " for " + body);
++                            }
++                        }
++                        // FastPaper end - look-and-interact type first
+                         if (closest.isEmpty()) {
+                             return false;
+                         }

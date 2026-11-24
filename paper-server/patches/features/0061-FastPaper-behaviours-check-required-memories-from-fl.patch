@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 19:52:54 -0500
+Subject: [PATCH] FastPaper: behaviours check required memories from flat
+ arrays
+
+
+diff --git a/net/minecraft/world/entity/ai/behavior/Behavior.java b/net/minecraft/world/entity/ai/behavior/Behavior.java
+index d59ffc59150fe2c6e5a481ff903f2783f14a788e..5aa362c81473d6a4ba2feafa9d2880b9e8607cef 100644
+--- a/net/minecraft/world/entity/ai/behavior/Behavior.java
++++ b/net/minecraft/world/entity/ai/behavior/Behavior.java
+@@ -37,6 +37,22 @@ public abstract class Behavior<E extends LivingEntity> implements BehaviorContro
+         }
+         this.configKey = key.toLowerCase(java.util.Locale.ROOT);
+         // Paper end - configurable behavior tick rate and timings
++        // FastPaper start - flat memory check: an ImmutableMap can never change, so its entries are copied once,
++        // in its own iteration order
++        if (entryCondition instanceof com.google.common.collect.ImmutableMap<MemoryModuleType<?>, MemoryStatus> immutable) {
++            this.swift$memoryTypes = new MemoryModuleType<?>[immutable.size()];
++            this.swift$memoryStatuses = new MemoryStatus[immutable.size()];
++            int i = 0;
++            for (final Entry<MemoryModuleType<?>, MemoryStatus> entry : immutable.entrySet()) {
++                this.swift$memoryTypes[i] = entry.getKey();
++                this.swift$memoryStatuses[i] = entry.getValue();
++                i++;
++            }
++        } else {
++            this.swift$memoryTypes = null;
++            this.swift$memoryStatuses = null;
++        }
++        // FastPaper end - flat memory check
+     }
+ 
+     @Override
+@@ -110,6 +126,35 @@ public abstract class Behavior<E extends LivingEntity> implements BehaviorContro
+     }
+ 
+     protected boolean hasRequiredMemories(final E body) {
++        // FastPaper start - flat memory check: the same checks in the same order; checkMemory has no side effects
++        final MemoryModuleType<?>[] types = this.swift$memoryTypes;
++        if (SWIFT_FLAT_MEMORY_CHECK && types != null) {
++            final MemoryStatus[] statuses = this.swift$memoryStatuses;
++            final net.minecraft.world.entity.ai.Brain<?> brain = body.getBrain();
++            boolean result = true;
++            for (int i = 0; i < types.length; i++) {
++                if (!brain.checkMemory(types[i], statuses[i])) {
++                    result = false;
++                    break;
++                }
++            }
++            if (io.papermc.paper.swift.SwiftVerify.ENABLED) {
++                io.papermc.paper.swift.SwiftVerify.checked();
++                if (result != this.swift$hasRequiredMemoriesVanilla(body)) {
++                    io.papermc.paper.swift.SwiftVerify.mismatch("Behavior#hasRequiredMemories", this.configKey + " for " + body + ": flat " + result);
++                }
++            }
++            return result;
++        }
++        return this.swift$hasRequiredMemoriesVanilla(body);
++    }
++
++    public static boolean SWIFT_FLAT_MEMORY_CHECK = Boolean.parseBoolean(System.getProperty("swift.flatMemoryCheck", "true")); // not final: tests compare both paths
++    private final MemoryModuleType<?> @org.jspecify.annotations.Nullable [] swift$memoryTypes;
++    private final MemoryStatus @org.jspecify.annotations.Nullable [] swift$memoryStatuses;
++
++    private boolean swift$hasRequiredMemoriesVanilla(final E body) {
++        // FastPaper end - flat memory check
+         for (Entry<MemoryModuleType<?>, MemoryStatus> entry : this.entryCondition.entrySet()) {
+             MemoryModuleType<?> memoryType = entry.getKey();
+             MemoryStatus requiredStatus = entry.getValue();

@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 19:53:16 -0500
+Subject: [PATCH] FastPaper: gate behaviours loop over their children by index
+
+
+diff --git a/net/minecraft/world/entity/ai/behavior/GateBehavior.java b/net/minecraft/world/entity/ai/behavior/GateBehavior.java
+index 3adfb334068d3722329f91011c41d5e59b1956c9..7afda1b1608e39eab8944c940bda870ee72bfbc5 100644
+--- a/net/minecraft/world/entity/ai/behavior/GateBehavior.java
++++ b/net/minecraft/world/entity/ai/behavior/GateBehavior.java
+@@ -78,6 +78,22 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+ 
+     @Override
+     public final void tickOrStop(final ServerLevel level, final E body, final long timestamp) {
++        // FastPaper start - gate index loop: the same children in the same order, read straight from the entry list
++        // instead of through a transforming iterator and a stream; "none running" is still checked after all ticked
++        if (SWIFT_GATE_INDEX_LOOP) {
++            final List<ShufflingList.WeightedEntry<BehaviorControl<? super E>>> entries = this.behaviors.entries;
++            for (int i = 0; i < entries.size(); i++) {
++                final BehaviorControl<? super E> behavior = entries.get(i).getData();
++                if (behavior.getStatus() == Behavior.Status.RUNNING) {
++                    behavior.tickOrStop(level, body, timestamp);
++                }
++            }
++            if (!swift$anyRunning(entries)) {
++                this.doStop(level, body, timestamp);
++            }
++            return;
++        }
++        // FastPaper end - gate index loop
+         // Paper start - Perf: Remove streams from hot code
+         for (final BehaviorControl<? super E> behavior : this.behaviors) {
+             if (behavior.getStatus() == Behavior.Status.RUNNING) {
+@@ -93,6 +109,17 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+     @Override
+     public final void doStop(final ServerLevel level, final E body, final long timestamp) {
+         this.status = Behavior.Status.STOPPED;
++        // FastPaper start - gate index loop
++        if (SWIFT_GATE_INDEX_LOOP) {
++            final List<ShufflingList.WeightedEntry<BehaviorControl<? super E>>> entries = this.behaviors.entries;
++            for (int i = 0; i < entries.size(); i++) {
++                final BehaviorControl<? super E> behavior = entries.get(i).getData();
++                if (behavior.getStatus() == Behavior.Status.RUNNING) {
++                    behavior.doStop(level, body, timestamp);
++                }
++            }
++        } else
++        // FastPaper end - gate index loop
+         // Paper start - Perf: Remove streams from hot code
+         for (final BehaviorControl<? super E> behavior : this.behaviors) {
+             if (behavior.getStatus() == Behavior.Status.RUNNING) {
+@@ -105,6 +132,19 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+         // Paper end - Perf: Remove streams from hot code
+     }
+ 
++    // FastPaper start - gate index loop
++    public static boolean SWIFT_GATE_INDEX_LOOP = Boolean.parseBoolean(System.getProperty("swift.gateIndexLoop", "true")); // not final: tests compare both paths
++
++    private static boolean swift$anyRunning(final List<? extends ShufflingList.WeightedEntry<? extends BehaviorControl<?>>> entries) {
++        for (int i = 0; i < entries.size(); i++) {
++            if (entries.get(i).getData().getStatus() == Behavior.Status.RUNNING) {
++                return true;
++            }
++        }
++        return false;
++    }
++    // FastPaper end - gate index loop
++
+     @Override
+     public String debugString() {
+         Set<String> runningBehaviours = this.behaviors
+@@ -137,6 +177,18 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+             public <E extends LivingEntity> void apply(
+                 final ShufflingList<BehaviorControl<? super E>> behaviors, final ServerLevel level, final E body, final long timestamp
+             ) {
++                // FastPaper start - gate index loop
++                if (SWIFT_GATE_INDEX_LOOP) {
++                    final List<ShufflingList.WeightedEntry<BehaviorControl<? super E>>> entries = behaviors.entries;
++                    for (int i = 0; i < entries.size(); i++) {
++                        final BehaviorControl<? super E> behavior = entries.get(i).getData();
++                        if (behavior.getStatus() == Behavior.Status.STOPPED && behavior.tryStart(level, body, timestamp)) {
++                            break;
++                        }
++                    }
++                    return;
++                }
++                // FastPaper end - gate index loop
+                 for (final BehaviorControl<? super E> behavior : behaviors) {
+                     if (behavior.getStatus() == Behavior.Status.STOPPED && behavior.tryStart(level, body, timestamp)) {
+                         break;
+@@ -151,6 +203,18 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+             public <E extends LivingEntity> void apply(
+                 final ShufflingList<BehaviorControl<? super E>> behaviors, final ServerLevel level, final E body, final long timestamp
+             ) {
++                // FastPaper start - gate index loop
++                if (SWIFT_GATE_INDEX_LOOP) {
++                    final List<ShufflingList.WeightedEntry<BehaviorControl<? super E>>> entries = behaviors.entries;
++                    for (int i = 0; i < entries.size(); i++) {
++                        final BehaviorControl<? super E> behavior = entries.get(i).getData();
++                        if (behavior.getStatus() == Behavior.Status.STOPPED) {
++                            behavior.tryStart(level, body, timestamp);
++                        }
++                    }
++                    return;
++                }
++                // FastPaper end - gate index loop
+                 for (final BehaviorControl<? super E> behavior : behaviors) {
+                     if (behavior.getStatus() == Behavior.Status.STOPPED) {
+                         behavior.tryStart(level, body, timestamp);

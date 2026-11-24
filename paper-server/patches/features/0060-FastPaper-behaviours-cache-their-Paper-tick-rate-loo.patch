@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 19:52:22 -0500
+Subject: [PATCH] FastPaper: behaviours cache their Paper tick-rate lookup
+
+
+diff --git a/net/minecraft/world/entity/ai/behavior/Behavior.java b/net/minecraft/world/entity/ai/behavior/Behavior.java
+index f78464bcbf82fdc7cbf43c2ee586586b2cdfa552..d59ffc59150fe2c6e5a481ff903f2783f14a788e 100644
+--- a/net/minecraft/world/entity/ai/behavior/Behavior.java
++++ b/net/minecraft/world/entity/ai/behavior/Behavior.java
+@@ -52,7 +52,7 @@ public abstract class Behavior<E extends LivingEntity> implements BehaviorContro
+     @Override
+     public final boolean tryStart(final ServerLevel level, final E body, final long timestamp) {
+         // Paper start - configurable behavior tick rate and timings
+-        int tickRate = java.util.Objects.requireNonNullElse(level.paperConfig().tickRates.behavior.get(body.getType(), this.configKey), -1);
++        int tickRate = SWIFT_RATE_CACHE ? this.swift$tickRate(level, body) : java.util.Objects.requireNonNullElse(level.paperConfig().tickRates.behavior.get(body.getType(), this.configKey), -1); // FastPaper - behaviour tick-rate cache
+         if (tickRate > -1 && timestamp < this.endTimestamp + tickRate) {
+             return false;
+         }
+@@ -121,6 +121,37 @@ public abstract class Behavior<E extends LivingEntity> implements BehaviorContro
+         return true;
+     }
+ 
++    // FastPaper start - behaviour tick-rate cache
++    public static boolean SWIFT_RATE_CACHE = Boolean.parseBoolean(System.getProperty("swift.behaviorRateCache", "true")); // not final: tests compare both paths
++
++    /**
++     * Paper's tick-rate value for this behaviour's key, resolved for one (table, entity type) pair. A config
++     * reload deserialises a new table, so the table's identity tells when the answer may have changed. One
++     * immutable holder in one field keeps the three values consistent if parallel ticking reads it.
++     */
++    private record SwiftRate(com.google.common.collect.Table<?, ?, ?> table, net.minecraft.world.entity.EntityType<?> type, int rate) {
++    }
++
++    private @org.jspecify.annotations.Nullable SwiftRate swift$rate;
++
++    private int swift$tickRate(final ServerLevel level, final E body) {
++        final com.google.common.collect.Table<net.minecraft.world.entity.EntityType<?>, String, Integer> table = level.paperConfig().tickRates.behavior;
++        final net.minecraft.world.entity.EntityType<?> type = body.getType();
++        SwiftRate cached = this.swift$rate;
++        if (cached == null || cached.table() != table || cached.type() != type) {
++            cached = new SwiftRate(table, type, java.util.Objects.requireNonNullElse(table.get(type, this.configKey), -1));
++            this.swift$rate = cached;
++        } else if (io.papermc.paper.swift.SwiftVerify.ENABLED) {
++            io.papermc.paper.swift.SwiftVerify.checked();
++            final int vanilla = java.util.Objects.requireNonNullElse(table.get(type, this.configKey), -1);
++            if (vanilla != cached.rate()) {
++                io.papermc.paper.swift.SwiftVerify.mismatch("Behavior tick rate", this.configKey + " for " + type + ": cached " + cached.rate() + " vs " + vanilla);
++            }
++        }
++        return cached.rate();
++    }
++    // FastPaper end - behaviour tick-rate cache
++
+     public enum Status {
+         STOPPED,
+         RUNNING;

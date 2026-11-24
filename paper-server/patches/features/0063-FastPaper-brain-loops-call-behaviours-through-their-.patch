@@ -1,0 +1,86 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 19:54:07 -0500
+Subject: [PATCH] FastPaper: brain loops call behaviours through their class
+
+
+diff --git a/net/minecraft/world/entity/ai/Brain.java b/net/minecraft/world/entity/ai/Brain.java
+index ca9d18c15ea530eb1b6350cd27bc63314bfb3b7b..eb3710fc2c67bdec513c5a8f068fc6eb1e66d111 100644
+--- a/net/minecraft/world/entity/ai/Brain.java
++++ b/net/minecraft/world/entity/ai/Brain.java
+@@ -270,7 +270,7 @@ public class Brain<E extends LivingEntity> {
+         // Swift start - flat behaviour loop: same behaviours, same order (duplicates included)
+         if (SWIFT_FLAT_LOOP && !io.papermc.paper.swift.SwiftVerify.ENABLED) {
+             for (final BehaviorControl<? super E> behavior : this.swift$flat().all) {
+-                if (behavior.getStatus() == Behavior.Status.RUNNING) {
++                if (io.papermc.paper.swift.entity.SwiftBehaviors.status(behavior) == Behavior.Status.RUNNING) { // FastPaper - brain direct dispatch
+                     runningBehaviours.add(behavior);
+                 }
+             }
+@@ -542,9 +542,11 @@ public class Brain<E extends LivingEntity> {
+             for (int g = 0; g < activities.length; g++) {
+                 if (this.swift$groupActive(activities[g])) {
+                     for (final BehaviorControl<? super E> behavior : groups[g]) {
+-                        if (behavior.getStatus() == Behavior.Status.STOPPED) {
+-                            behavior.tryStart(level, body, time);
++                        // FastPaper start - brain direct dispatch
++                        if (io.papermc.paper.swift.entity.SwiftBehaviors.status(behavior) == Behavior.Status.STOPPED) {
++                            io.papermc.paper.swift.entity.SwiftBehaviors.tryStart(behavior, level, body, time);
+                         }
++                        // FastPaper end - brain direct dispatch
+                     }
+                 }
+             }
+@@ -570,7 +572,7 @@ public class Brain<E extends LivingEntity> {
+         long timestamp = level.getGameTime();
+ 
+         for (BehaviorControl<? super E> behavior : this.getRunningBehaviors()) {
+-            behavior.tickOrStop(level, body, timestamp);
++            io.papermc.paper.swift.entity.SwiftBehaviors.tickOrStop(behavior, level, body, timestamp); // FastPaper - brain direct dispatch
+         }
+     }
+ 
+diff --git a/net/minecraft/world/entity/ai/behavior/GateBehavior.java b/net/minecraft/world/entity/ai/behavior/GateBehavior.java
+index 7afda1b1608e39eab8944c940bda870ee72bfbc5..b706b91b7b6a27a8c09feea0993b474d051d876c 100644
+--- a/net/minecraft/world/entity/ai/behavior/GateBehavior.java
++++ b/net/minecraft/world/entity/ai/behavior/GateBehavior.java
+@@ -84,8 +84,8 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+             final List<ShufflingList.WeightedEntry<BehaviorControl<? super E>>> entries = this.behaviors.entries;
+             for (int i = 0; i < entries.size(); i++) {
+                 final BehaviorControl<? super E> behavior = entries.get(i).getData();
+-                if (behavior.getStatus() == Behavior.Status.RUNNING) {
+-                    behavior.tickOrStop(level, body, timestamp);
++                if (io.papermc.paper.swift.entity.SwiftBehaviors.status(behavior) == Behavior.Status.RUNNING) { // FastPaper - brain direct dispatch
++                    io.papermc.paper.swift.entity.SwiftBehaviors.tickOrStop(behavior, level, body, timestamp); // FastPaper - brain direct dispatch
+                 }
+             }
+             if (!swift$anyRunning(entries)) {
+@@ -137,7 +137,7 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+ 
+     private static boolean swift$anyRunning(final List<? extends ShufflingList.WeightedEntry<? extends BehaviorControl<?>>> entries) {
+         for (int i = 0; i < entries.size(); i++) {
+-            if (entries.get(i).getData().getStatus() == Behavior.Status.RUNNING) {
++            if (io.papermc.paper.swift.entity.SwiftBehaviors.status(entries.get(i).getData()) == Behavior.Status.RUNNING) { // FastPaper - brain direct dispatch
+                 return true;
+             }
+         }
+@@ -182,7 +182,7 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+                     final List<ShufflingList.WeightedEntry<BehaviorControl<? super E>>> entries = behaviors.entries;
+                     for (int i = 0; i < entries.size(); i++) {
+                         final BehaviorControl<? super E> behavior = entries.get(i).getData();
+-                        if (behavior.getStatus() == Behavior.Status.STOPPED && behavior.tryStart(level, body, timestamp)) {
++                        if (io.papermc.paper.swift.entity.SwiftBehaviors.status(behavior) == Behavior.Status.STOPPED && io.papermc.paper.swift.entity.SwiftBehaviors.tryStart(behavior, level, body, timestamp)) { // FastPaper - brain direct dispatch
+                             break;
+                         }
+                     }
+@@ -208,8 +208,8 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+                     final List<ShufflingList.WeightedEntry<BehaviorControl<? super E>>> entries = behaviors.entries;
+                     for (int i = 0; i < entries.size(); i++) {
+                         final BehaviorControl<? super E> behavior = entries.get(i).getData();
+-                        if (behavior.getStatus() == Behavior.Status.STOPPED) {
+-                            behavior.tryStart(level, body, timestamp);
++                        if (io.papermc.paper.swift.entity.SwiftBehaviors.status(behavior) == Behavior.Status.STOPPED) { // FastPaper - brain direct dispatch
++                            io.papermc.paper.swift.entity.SwiftBehaviors.tryStart(behavior, level, body, timestamp); // FastPaper - brain direct dispatch
+                         }
+                     }
+                     return;
