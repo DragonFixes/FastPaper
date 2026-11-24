@@ -45,6 +45,8 @@ exception to the "same gameplay" rule and is off by default (see its section).
 | 0062 | Grouped brain behaviours loop over their children by index | `swift.gateIndexLoop` |
 | 0063 | Brain loops call behaviours through their class, so the JIT can inline them | `swift.brainDirectDispatch` |
 | 0064-0068 | Leaf 26.3 patches (Purpur, Gale, Leaf); **not gameplay-identical**, see their section | Leaf, Gale and Purpur config files |
+| 0069 | Villagers/piglins looking for a nearby player only visit the players their sensor saw | `swift.lookInteractTypeIndex` |
+| 0050+ | Brain sensors sort one packed array instead of two (same order) | `swift.sensorSortPacked` |
 
 The numbers below come from spark profiles of real servers (ms of main-thread time per tick) and from
 benchmarks in the test suite.
@@ -698,6 +700,44 @@ FastPaper adaptations inside 0059-0063:
 
 The gameplay-parity suite passes with Leaf in `swift.asyncEntities` mode (several runs) and with
 `swift.verify`. `swift.asyncPathfinding` together with Leaf has not been run through it yet.
+
+---
+
+## 0069 and 0050+: villager crowds, from a second profile (FastPaper)
+
+Found in a 7-minute spark profile of a live FastPaper server (`dev/leaf-patches`, parallel entity ticking)
+with 1,756 villagers among 2,290 entities and two players. Entity ticking was about 340 s of CPU over the main
+thread and four entity threads, almost all of it villager brains.
+
+**0069: look-and-interact visits only entities of the wanted type.** Every tick, each villager (and piglin)
+looks for a player within 4 blocks among everything its sensor saw (`SetLookAndInteract`). 0059 made each
+check cheaper, but the walk still visited every neighbour: in a crowd that is hundreds of villagers per
+villager per tick, about 26 s of the profile's CPU, the largest single cost in the brain. Now the sensor's
+visible-entities object builds, on first use, the list of its entries of that type, in the same order, and the
+search walks only that list. An entity's type never changes and the sensor never edits its list afterwards, so
+the list stays exact; its size is checked so a changed list would be rebuilt. Entities of other types fail the
+filter and never reach the line-of-sight test, so the same entity is found after the same line-of-sight tests.
+
+**0050+: one packed array instead of two.** 0050 sorts (distance, position) pairs with fastutil's two-array
+quicksort (about 21 s of the profile's CPU in the sensor sort). Now each element is one `long`: the distance
+bits with the low 12 bits replaced by the position, sorted by the JDK's primitive sort. Elements whose distances
+are equal after that truncation are put in exact (distance, position) order by an insertion pass over each such
+run, using the full distances. The order is the same as 0050's; lists longer than 4,096 use the two-array sort.
+
+**Gain:** look-and-interact search with 149 neighbours and no player, index built once per sensor update:
+238 ns -> 91 ns per search (2.62x, `bench_look_interact`). Sensor sort: 1.4-2.2x over the two-array sort for 8
+to 2,048 neighbours (standalone benchmark on hall-like distances); `bench_sensor_sort` (300 villagers x 299
+neighbours) is now 4.27x faster than the comparator sort, against 1.87x for 0050 alone.
+
+**Tests:** `look_interact_type_index_differential` (villagers, piglins and two players: every villager's
+sensed entities searched for four types at five distances, indexed and full walk, the same entity; some
+searches must find a player), `look_interact_villager_targets_player` (a villager next to a player in a crowd
+picks the player as its interaction target), `sort_differential` (now alternates the packed and two-array
+sorts), and the `SwiftSortPackedTest` unit test (random distances, exact ties, distances differing only in the
+truncated bits, the largest packed list). `-Dswift.verify=true` also runs the full walk for every
+look-and-interact search and reports any difference. A planted bug (the index skipping its first entry) fails
+both look-and-interact tests. The whole suite (74 tests) passes normally, with `-Dswift.verify=true` (56.8
+million checks, 0 mismatches) and three times with parallel entity ticking.
 
 ## How the changes are tested
 
