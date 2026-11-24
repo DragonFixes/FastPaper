@@ -1785,7 +1785,7 @@ index bc700545aa552e843e3e860f1ff383599e1963e9..02521579ae7962578063a66a464aee78
              }
          }
 diff --git a/net/minecraft/network/Connection.java b/net/minecraft/network/Connection.java
-index 3bd459b28aa59ba312de141cdca444bc05773ddd..fb0e965c8f5211d5b82d13a0ee8a7a4882b8037a 100644
+index 3bd459b28aa59ba312de141cdca444bc05773ddd..f389b4520551e0b987d759045904c68733753014 100644
 --- a/net/minecraft/network/Connection.java
 +++ b/net/minecraft/network/Connection.java
 @@ -126,6 +126,7 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
@@ -1796,15 +1796,16 @@ index 3bd459b28aa59ba312de141cdca444bc05773ddd..fb0e965c8f5211d5b82d13a0ee8a7a48
  
      public Connection(final PacketFlow receiving) {
          this.receiving = receiving;
-@@ -135,6 +136,7 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
+@@ -135,6 +136,8 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
      public void channelActive(final ChannelHandlerContext ctx) throws Exception {
          super.channelActive(ctx);
          this.channel = ctx.channel();
-+        this.eventLoop = (io.netty.channel.SingleThreadEventLoop) this.channel.eventLoop(); // Paper - optimise packets that are not flushed
++        // Paper - optimise packets that are not flushed - embedded and local channels have other loop types; those send normally
++        this.eventLoop = this.channel.eventLoop() instanceof final io.netty.channel.SingleThreadEventLoop singleThreadLoop ? singleThreadLoop : null;
          this.address = this.channel.remoteAddress();
          this.preparing = false; // Spigot
          if (this.delayedDisconnect != null) {
-@@ -329,6 +331,11 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
+@@ -329,6 +332,11 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
          if (protocol.flow() != this.getReceiving()) {
              throw new IllegalStateException("Invalid inbound protocol: " + protocol.id());
          }
@@ -1816,7 +1817,7 @@ index 3bd459b28aa59ba312de141cdca444bc05773ddd..fb0e965c8f5211d5b82d13a0ee8a7a48
  
          this.packetListener = packetListener;
          this.disconnectListener = null;
-@@ -339,7 +346,14 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
+@@ -339,7 +347,14 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
              configMessage = configMessage.andThen(ctx -> ctx.pipeline().addAfter(HandlerNames.DECODER, HandlerNames.BUNDLER, newBundler));
          }
  
@@ -1832,7 +1833,7 @@ index 3bd459b28aa59ba312de141cdca444bc05773ddd..fb0e965c8f5211d5b82d13a0ee8a7a48
      }
  
      public void setupOutboundProtocol(final ProtocolInfo<?> protocol) {
-@@ -358,6 +372,31 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
+@@ -358,6 +373,31 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
          syncAfterConfigurationChange(this.channel.writeAndFlush(configMessage.andThen(ctx -> this.sendLoginDisconnect = isLoginProtocol)));
      }
  
@@ -1864,19 +1865,19 @@ index 3bd459b28aa59ba312de141cdca444bc05773ddd..fb0e965c8f5211d5b82d13a0ee8a7a48
      public void setListenerForServerboundHandshake(final PacketListener packetListener) {
          if (this.packetListener != null) {
              throw new IllegalStateException("Listener already set");
-@@ -498,6 +537,11 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
+@@ -498,6 +538,11 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
          if (this.channel.eventLoop().inEventLoop()) {
              this.doSendPacket(packet, listener, flush);
          } else {
 +            // Paper start - optimise packets that are not flushed
-+            if (!flush && org.dreeam.leaf.config.modules.network.OptimizeNonFlushPacketSending.enabled) {
++            if (!flush && this.eventLoop != null && org.dreeam.leaf.config.modules.network.OptimizeNonFlushPacketSending.enabled) {
 +                this.eventLoop.lazyExecute(() -> this.doSendPacket(packet, listener, false));
 +            } else
 +                // Paper end - optimise packets that are not flushed
              this.channel.eventLoop().execute(() -> this.doSendPacket(packet, listener, flush));
          }
      }
-@@ -627,13 +671,7 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
+@@ -627,13 +672,7 @@ public class Connection extends SimpleChannelInboundHandler<Packet<?>> {
              if (!(this.packetListener instanceof net.minecraft.server.network.ServerLoginPacketListenerImpl loginPacketListener)
                  || loginPacketListener.state != net.minecraft.server.network.ServerLoginPacketListenerImpl.State.VERIFYING
                  || Connection.joinAttemptsThisTick++ < MAX_PER_TICK) {
