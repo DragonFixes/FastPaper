@@ -650,6 +650,48 @@ entity ticking three times, and with `-Dswift.verify=true` (56.9 million checks,
 
 ---
 
+## 0059-0063: Leaf 26.3 patches (`dev/leaf-patches`)
+
+Leaf's `ver/26.3` patches ([Winds-Studio/Leaf@60c5729](https://github.com/Winds-Studio/Leaf/tree/60c5729)),
+squashed by origin. Each patch's commit message lists the original Leaf patches and their authors.
+
+| Patch | Contents |
+|---|---|
+| 0059 | Purpur's server changes (Purpur config, ridables, gameplay options) |
+| 0060 | Gale and Leaf configuration, `/leaf` commands, configurable vanilla profiler |
+| 0061 | Gale-era optimizations, log-noise options and MC bug fixes |
+| 0062 | Patches ported from Pufferfish, Lithium, SparklyPaper, Carpet Fixes, Akarin and other forks |
+| 0063 | Leaf's own performance patches and features |
+
+The paper-side Leaf and Purpur patches, Leaf's sources (`org.dreeam.leaf`, `org.purpurmc.purpur`,
+`org.galemc.gale`, ...) and `leaf.at` live outside these feature patches, in `paper-server/src`,
+`paper-api/src` and `build-data/paper.at`.
+
+**These patches do not follow the "same gameplay" rule.** They are Leaf's, with Leaf's defaults:
+switches live in Leaf's, Gale's and Purpur's config files, not in `-Dswift.*` flags. Several of them
+(MC bug fixes, Purpur options that default to non-vanilla values) change behaviour as shipped.
+
+Not included, because Swift already covers the same ground: Leaf's Rebrand, Petal async
+pathfinding (Swift 0051), SparklyPaper parallel world ticking and its API (Swift 0045), the
+Multithreaded Tracker (Swift 0046), Sakura's swap-remove entity list (it reorders entities and
+breaks Swift's packed boxes), Leaf's PoiAccess visited-section set (Swift 0040), the
+limit-pushable-entity-queries push path and the per-level radix sort in sensors (both share
+per-level state that Swift's parallel entity ticking would race on). Purpur's `/tpsbar` and
+`/rambar` are unregistered; FastPaper's own versions stay.
+
+FastPaper adaptations inside 0059-0063:
+
+- Swift's flat brain loop updates the running counts of Leaf's brain behaviour sets. Leaf's tick
+  loop skips sets whose count is zero.
+- Leaf's "unchecked" chunk accessors only use the non-synchronised chunk map on its owning thread,
+  and fall back to the concurrent map elsewhere (Swift's entity threads).
+- Per-world MSPT tracking runs in the normal serial world loop.
+- Villager POI search radius (Purpur option) feeds Swift's empty-search cache.
+
+Leaf's patches have not been run through the gameplay-parity suite in the parallel modes
+(`swift.asyncEntities`, `swift.asyncPathfinding`). Run it several times before enabling those
+together with Leaf.
+
 ## How the changes are tested
 
 - **GameTests inside a real Paper server** (`./gradlew :paper-server:runGameTests`): behaviour tests
