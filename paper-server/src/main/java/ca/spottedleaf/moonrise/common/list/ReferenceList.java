@@ -7,14 +7,12 @@ import java.util.NoSuchElementException;
 
 public final class ReferenceList<E> implements Iterable<E> {
 
-    private static final Object[] EMPTY_LIST = new Object[0];
-
     private final Reference2IntOpenHashMap<E> referenceToIndex;
     private E[] references;
     private int count;
 
     public ReferenceList() {
-        this((E[])EMPTY_LIST);
+        this((E[]) me.titaniumtown.ArrayConstants.emptyObjectArray); // Gale - JettPack - reduce array allocations
     }
 
     public ReferenceList(final E[] referenceArray) {
@@ -49,12 +47,17 @@ public final class ReferenceList<E> implements Iterable<E> {
 
         // move the object at the end to this index
         final int endIndex = --this.count;
-        final E end = (E)this.references[endIndex];
         if (index != endIndex) {
+            // The removed element was not the last one.
+            // Move the element that was at 'endIndex' (the old tail) to 'index'.
+            final E end = (E)this.references[endIndex];
             // not empty after this call
             this.referenceToIndex.put(end, index); // update index
+            this.references[index] = end;
         }
-        this.references[index] = end;
+        // Null out the slot at 'endIndex'.
+        // If 'index == endIndex', this was the slot of the removed element.
+        // If 'index != endIndex', this was the original slot of the moved element 'end'.
         this.references[endIndex] = null;
 
         return true;

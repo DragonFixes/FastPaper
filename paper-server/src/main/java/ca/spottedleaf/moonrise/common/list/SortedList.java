@@ -6,14 +6,12 @@ import java.util.Comparator;
 
 public final class SortedList<E> {
 
-    private static final Object[] EMPTY_LIST = new Object[0];
-
     private Comparator<? super E> comparator;
     private E[] elements;
     private int count;
 
     public SortedList(final Comparator<? super E> comparator) {
-        this((E[])EMPTY_LIST, comparator);
+        this((E[]) me.titaniumtown.ArrayConstants.emptyObjectArray, comparator); // Gale - JettPack - reduce array allocations
     }
 
     public SortedList(final E[] elements, final Comparator<? super E> comparator) {

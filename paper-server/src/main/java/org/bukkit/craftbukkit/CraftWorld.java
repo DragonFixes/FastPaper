@@ -178,7 +178,8 @@ public class CraftWorld extends CraftRegionAccessor implements World {
     private final @Nullable BiomeProvider biomeProvider;
     private final List<BlockPopulator> populators = new ArrayList<>();
     private final BlockMetadataStore blockMetadata = new BlockMetadataStore(this);
-    private final Object2IntOpenHashMap<SpawnCategory> spawnCategoryLimit = new Object2IntOpenHashMap<>();
+    private static final SpawnCategory[] SPAWN_CATEGORIES = SpawnCategory.values(); // Leaf - optimize mob spawning
+    private final int[] spawnCategoryLimit = new int[SPAWN_CATEGORIES.length]; // Leaf - optimize mob spawning
     private final ServerLevel world;
     private final NamespacedKey key;
     private final Environment environment;
@@ -227,6 +228,7 @@ public class CraftWorld extends CraftRegionAccessor implements World {
 
     @Override
     public int getTileEntityCount() {
+        if (org.dreeam.leaf.config.modules.opt.OptimizeBlockEntities.enabled) return world.blockEntityTickers.size(); // Leaf - Optimize block entities count
         // We don't use the full world block entity list, so we must iterate chunks
         int size = 0;
         for (ChunkHolder playerchunk : ca.spottedleaf.moonrise.common.PlatformHooks.get().getVisibleChunkHolders(this.world)) {
@@ -308,8 +310,9 @@ public class CraftWorld extends CraftRegionAccessor implements World {
         this.biomeProvider = biomeProvider;
 
         this.environment = environment;
+        Arrays.fill(spawnCategoryLimit, -1); // Leaf - optimize mob spawning
         // Paper start - per world spawn limits
-        for (SpawnCategory spawnCategory : SpawnCategory.values()) {
+        for (SpawnCategory spawnCategory : SPAWN_CATEGORIES) { // Leaf - optimize mob spawning
             if (CraftSpawnCategory.isValidForLimits(spawnCategory)) {
                 setSpawnLimit(spawnCategory, this.world.paperConfig().entities.spawning.spawnLimits.getInt(CraftSpawnCategory.toNMS(spawnCategory)));
             }
@@ -1588,7 +1591,7 @@ public class CraftWorld extends CraftRegionAccessor implements World {
     }
 
     public final int getSpawnLimitUnsafe(final SpawnCategory spawnCategory) {
-        int limit = this.spawnCategoryLimit.getOrDefault(spawnCategory, -1);
+        int limit = this.spawnCategoryLimit[spawnCategory.ordinal()]; // Leaf - optimize mob spawning
         if (limit < 0) {
             limit = this.server.getSpawnLimitUnsafe(spawnCategory);
         }
@@ -1600,7 +1603,7 @@ public class CraftWorld extends CraftRegionAccessor implements World {
         Preconditions.checkArgument(spawnCategory != null, "SpawnCategory cannot be null");
         Preconditions.checkArgument(CraftSpawnCategory.isValidForLimits(spawnCategory), "SpawnCategory.%s are not supported", spawnCategory);
 
-        this.spawnCategoryLimit.put(spawnCategory, limit);
+        this.spawnCategoryLimit[spawnCategory.ordinal()] = limit; // Leaf - optimize mob spawning
     }
 
     @Override
@@ -1807,8 +1810,8 @@ public class CraftWorld extends CraftRegionAccessor implements World {
         if (data != null) {
             Preconditions.checkArgument(particle.getDataType().isInstance(data), "data (%s) should be %s", data.getClass(), particle.getDataType());
         }
-        this.getHandle().sendParticlesSource(
-            receivers == null ? this.getHandle().players() : Lists.transform(receivers, player -> ((CraftPlayer) player).getHandle()),
+        this.getHandle().sendParticlesSourceBukkit( // Leaf - Remove stream in CraftWorld#spawnParticle
+            receivers, // Leaf - Remove stream in CraftWorld#spawnParticle
             sender != null ? ((CraftPlayer) sender).getHandle() : null,
             CraftParticle.createParticleParam(particle, data),
             force,
@@ -2004,6 +2007,52 @@ public class CraftWorld extends CraftRegionAccessor implements World {
     public DragonBattle getEnderDragonBattle() {
         return (this.getHandle().getDragonFight() == null) ? null : new CraftDragonBattle(this.getHandle().getDragonFight());
     }
+
+    // Purpur start - Add local difficulty api
+    public float getLocalDifficultyAt(Location location) {
+        return getHandle().getCurrentDifficultyAt(org.bukkit.craftbukkit.util.CraftLocation.toBlockPos(location)).getEffectiveDifficulty();
+    }
+    // Purpur end - Add local difficulty api
+
+    // Purpur start - Debug Marker API
+    @Override
+    public void sendBlockHighlight(Location location, int duration) {
+        sendBlockHighlight(location, duration, "", 0x6400FF00);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, int argb) {
+        sendBlockHighlight(location, duration, "", argb);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text) {
+        sendBlockHighlight(location, duration, text, 0x6400FF00);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text, int argb) {
+        // Purpur - TODO: NOOP until further notice
+        //net.minecraft.network.protocol.game.DebugPackets.sendGameTestAddMarker(getHandle(), org.bukkit.craftbukkit.util.CraftLocation.toBlockPosition(location), text, argb, duration);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, org.bukkit.Color color, int transparency) {
+        sendBlockHighlight(location, duration, "", color, transparency);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text, org.bukkit.Color color, int transparency) {
+        if (transparency < 0 || transparency > 255) throw new IllegalArgumentException("transparency is outside of 0-255 range");
+        sendBlockHighlight(location, duration, text, transparency << 24 | color.asRGB());
+    }
+
+    @Override
+    public void clearBlockHighlights() {
+        // Purpur - TODO: NOOP until further notice
+        //net.minecraft.network.protocol.game.DebugPackets.sendGameTestClearPacket(getHandle());
+    }
+    // Purpur end - Debug Marker API
 
     @Override
     public Collection<GeneratedStructure> getStructures(int x, int z) {

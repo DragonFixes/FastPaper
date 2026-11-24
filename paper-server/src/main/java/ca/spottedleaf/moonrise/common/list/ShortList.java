@@ -10,9 +10,7 @@ public final class ShortList {
         this.map.defaultReturnValue(Short.MIN_VALUE);
     }
 
-    private static final short[] EMPTY_LIST = new short[0];
-
-    private short[] byIndex = EMPTY_LIST;
+    private short[] byIndex = me.titaniumtown.ArrayConstants.emptyShortArray; // Gale - JettPack - reduce array allocations
     private short count;
 
     public int size() {

@@ -86,6 +86,11 @@ public abstract class SingleUserAreaMap<T> {
         if (fromX == NOT_SET) {
             return false;
         }
+        // Leaf start - Optimise player movement checks
+        if (org.dreeam.leaf.config.modules.opt.OptimizePlayerMovementProcessing.enabled && fromX == toX && fromZ == toZ && oldViewDistance == newViewDistance) {
+            return true;
+        }
+        // Leaf end - Optimise player movement checks
 
         this.lastChunkX = toX;
         this.lastChunkZ = toZ;

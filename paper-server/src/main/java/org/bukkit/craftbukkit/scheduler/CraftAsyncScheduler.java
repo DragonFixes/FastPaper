@@ -38,17 +38,13 @@ import java.util.concurrent.TimeUnit;
 
 public class CraftAsyncScheduler extends CraftScheduler {
 
-    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(
-            4, Integer.MAX_VALUE, 30L, TimeUnit.SECONDS, new SynchronousQueue<>(),
-            new ThreadFactoryBuilder().setNameFormat("Craft Scheduler Thread - %1$d").build());
+    private final java.util.concurrent.ExecutorService executor = org.dreeam.leaf.async.ExecutorFactory.buildBukkitAsyncSchedulerExecutor(); // Leaf - Virtual thread support for bukkit async scheduler
     private final Executor management = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
             .setNameFormat("Craft Async Scheduler Management Thread").build());
     private final List<CraftTask> temp = new ArrayList<>();
 
     CraftAsyncScheduler() {
         super(true);
-        executor.allowCoreThreadTimeOut(true);
-        executor.prestartAllCoreThreads();
     }
 
     @Override

@@ -50,7 +50,7 @@ public class CraftBossBar implements BossBar {
     }
 
     private void initialize() {
-        this.flags = new HashMap<>();
+        this.flags = new java.util.EnumMap<>(BarFlag.class); // Leaf - Use optimized collections in craftbukkit classes
         this.flags.put(BarFlag.DARKEN_SKY, new FlagContainer(this.handle::shouldDarkenScreen, this.handle::setDarkenScreen));
         this.flags.put(BarFlag.PLAY_BOSS_MUSIC, new FlagContainer(this.handle::shouldPlayBossMusic, this.handle::setPlayBossMusic));
         this.flags.put(BarFlag.CREATE_FOG, new FlagContainer(this.handle::shouldCreateWorldFog, this.handle::setCreateWorldFog));

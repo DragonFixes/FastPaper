@@ -46,6 +46,7 @@ public class MinecraftCommandPermissionsTest {
         Set<String> foundPerms = new HashSet<>();
         for (CommandNode<CommandSourceStack> child : root.getChildren()) {
             final String vanillaPerm = VanillaCommandWrapper.getPermission(child);
+            if (TO_SKIP.contains(vanillaPerm)) continue; // Purpur - Skip junit tests for purpur commands
             if (!perms.contains(vanillaPerm)) {
                 missing.add("Missing permission for " + child.getName() + " (" + vanillaPerm + ") command");
             } else {
@@ -58,6 +59,25 @@ public class MinecraftCommandPermissionsTest {
     }
 
     private static final List<String> TO_SKIP = List.of(
+        // Purpur start - Skip junit tests for purpur commands
+        "minecraft.command.compass",
+        "minecraft.command.credits",
+        "minecraft.command.demo",
+        "minecraft.command.ping",
+        "minecraft.command.ram",
+        "minecraft.command.rambar",
+        "minecraft.command.tpsbar",
+        "minecraft.command.uptime",
+        "minecraft.command.debug",
+        "minecraft.command.gamemode.adventure",
+        "minecraft.command.gamemode.adventure.other",
+        "minecraft.command.gamemode.creative",
+        "minecraft.command.gamemode.creative.other",
+        "minecraft.command.gamemode.spectator",
+        "minecraft.command.gamemode.spectator.other",
+        "minecraft.command.gamemode.survival",
+        "minecraft.command.gamemode.survival.other",
+        // Purpur end - Skip junit tests for purpur commands
         "minecraft.command.selector"
     );
 

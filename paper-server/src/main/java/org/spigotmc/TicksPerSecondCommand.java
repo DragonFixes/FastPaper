@@ -39,7 +39,7 @@ public class TicksPerSecondCommand extends Command {
         }
 
         // Paper start - Further improve tick handling
-        double[] tps = org.bukkit.Bukkit.getTPS();
+        double[] tps = org.bukkit.Bukkit.getTPSIncluding5SecondAverage(); // Gale - Purpur - 5-second TPS average
         Component[] tpsAvg = new Component[tps.length];
 
         for (int i = 0; i < tps.length; i++) {
@@ -47,9 +47,27 @@ public class TicksPerSecondCommand extends Command {
         }
 
         TextComponent.Builder builder = text();
-        builder.append(text("TPS from last 1m, 5m, 15m: ", NamedTextColor.GOLD));
+        builder.append(text("TPS from last 5s, 1m, 5m, 15m: ", NamedTextColor.GOLD)); // Gale - Purpur - 5-second TPS average
         builder.append(Component.join(JoinConfiguration.commas(true), tpsAvg));
         sender.sendMessage(builder.asComponent());
+        // Gale start - YAPFA - last tick time - in TPS command
+        if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().misc.lastTickTimeInTpsCommand.enabled) {
+            long lastTickProperTime = net.minecraft.server.MinecraftServer.lastTickProperTime;
+            long lastTickOversleepTime = net.minecraft.server.MinecraftServer.lastTickOversleepTime;
+            var lastTickTimeMessage = text("Last tick: ")
+                .append(formatTickTimeDuration(lastTickProperTime, 44, 50, 51));
+
+            if (org.galemc.gale.configuration.GaleGlobalConfiguration.get().misc.lastTickTimeInTpsCommand.addOversleep) {
+                lastTickTimeMessage = lastTickTimeMessage.append(text(" self + "))
+                    .append(formatTickTimeDuration(lastTickOversleepTime, Math.max(1, 51 - lastTickProperTime), Math.max(2, 52 - lastTickProperTime), Math.max(3, 53 - lastTickProperTime)))
+                    .append(text(" oversleep = "))
+                    .append(formatTickTimeDuration(lastTickProperTime + lastTickOversleepTime, 51, 52, 53));
+            }
+
+            lastTickTimeMessage = lastTickTimeMessage.color(NamedTextColor.GOLD);
+            sender.sendMessage(lastTickTimeMessage);
+        }
+        // Gale end - YAPFA - last tick time - in TPS command
         if (args.length > 0 && args[0].equals("mem") && sender.hasPermission("bukkit.command.tpsmemory")) {
             sender.sendMessage(text()
                 .append(text("Current Memory Usage: ", NamedTextColor.GOLD))
@@ -72,4 +90,16 @@ public class TicksPerSecondCommand extends Command {
         return text(amount, color);
         // Paper end
     }
+
+    // Gale start - YAPFA - last tick time - in TPS command
+    private static final TextColor safeColor = NamedTextColor.GREEN;
+    private static final TextColor closeColor = NamedTextColor.YELLOW;
+    private static final TextColor problematicColor = TextColor.color(0xf77c1e);
+    private static final TextColor severeColor = NamedTextColor.RED;
+
+    private static Component formatTickTimeDuration(long ms, long safeLimit, long closeLimit, long nonSevereLimit) {
+        return text(ms + " ", ms <= safeLimit ? safeColor : ms <= closeLimit ? closeColor : ms <= nonSevereLimit ? problematicColor : severeColor)
+            .append(text("ms", NamedTextColor.GOLD));
+    }
+    // Gale end - YAPFA - last tick time - in TPS command
 }

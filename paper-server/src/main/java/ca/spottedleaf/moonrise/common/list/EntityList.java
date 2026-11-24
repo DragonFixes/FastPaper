@@ -18,9 +18,7 @@ public final class EntityList implements Iterable<Entity> {
         this.entityToIndex.defaultReturnValue(Integer.MIN_VALUE);
     }
 
-    private static final Entity[] EMPTY_LIST = new Entity[0];
-
-    private Entity[] entities = EMPTY_LIST;
+    private Entity[] entities = me.titaniumtown.ArrayConstants.emptyEntityArray; // Gale - JettPack - reduce array allocations
     private int count;
 
     public int size() {

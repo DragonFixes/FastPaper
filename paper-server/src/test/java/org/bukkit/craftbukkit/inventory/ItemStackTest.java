@@ -24,7 +24,6 @@ import org.bukkit.util.io.BukkitObjectOutputStream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
 import static org.bukkit.support.MatcherAssert.assertThat;
 import static org.bukkit.support.Matchers.sameHash;
@@ -414,7 +413,7 @@ public class ItemStackTest {
             }
         }
 
-        final String data = new String(Base64Coder.encode(out.toByteArray()));
+        final String data = java.util.Base64.getEncoder().encodeToString(out.toByteArray()); // Leaf - Fix paper tests
 
         ObjectInputStream ois = null;
 

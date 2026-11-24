@@ -668,6 +668,15 @@ public class CraftEventFactory {
         }
         craftServer.getPluginManager().callEvent(event);
 
+        // Purpur start - Ridables
+        if (player != null) {
+            switch (action) {
+                case LEFT_CLICK_BLOCK, LEFT_CLICK_AIR -> player.processClick(InteractionHand.MAIN_HAND);
+                case RIGHT_CLICK_BLOCK, RIGHT_CLICK_AIR -> player.processClick(InteractionHand.OFF_HAND);
+            }
+        }
+        // Purpur end - Ridables
+
         return event;
     }
 
@@ -774,7 +783,7 @@ public class CraftEventFactory {
         // Spigot start - SPIGOT-7523: Merge after spawn event and only merge if the event was not cancelled (gets checked above)
         if (entity instanceof net.minecraft.world.entity.ExperienceOrb xp) {
             double radius = level.spigotConfig.expMerge;
-            if (radius > 0) {
+            if (radius > 0 && !xp.leaf$skipInitialMerge) { // Leaf - Fix Pufferfish and Purpur patches - Improve Purpur shift-click mending
                 // Paper start - Maximum exp value when merging; Whole section has been tweaked, see comments for specifics
                 final long maxValue = level.paperConfig().entities.behavior.experienceMergeMaxValue;
                 final boolean mergeUnconditionally = maxValue <= 0;
@@ -1165,6 +1174,7 @@ public class CraftEventFactory {
         EntityDamageEvent event;
         if (damager != null) {
             event = new EntityDamageByEntityEvent(damager.getBukkitEntity(), damagee.getBukkitEntity(), cause, bukkitDamageSource, modifiers, modifierFunctions, critical);
+            damager.processClick(InteractionHand.MAIN_HAND); // Purpur - Ridables
         } else {
             event = new EntityDamageEvent(damagee.getBukkitEntity(), cause, bukkitDamageSource, modifiers, modifierFunctions);
         }

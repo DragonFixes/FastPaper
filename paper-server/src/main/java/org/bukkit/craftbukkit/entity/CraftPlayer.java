@@ -241,7 +241,7 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
     private long lastPlayed = 0;
     private boolean hasPlayedBefore = false;
     private final ConversationTracker conversationTracker = new ConversationTracker();
-    private final Map<UUID, Set<WeakReference<Plugin>>> invertedVisibilityEntities = new HashMap<>();
+    private final Map<UUID, Set<WeakReference<Plugin>>> invertedVisibilityEntities = new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>(); // SparklyPaper - optimize canSee checks
     private final Set<UUID> unlistedEntities = new HashSet<>(); // Paper - Add Listing API for Player
     private static final WeakHashMap<Plugin, WeakReference<Plugin>> pluginWeakReferences = new WeakHashMap<>();
     private int hash = 0;
@@ -591,10 +591,15 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
 
     @Override
     public void setPlayerListName(String name) {
+        // Purpur start - AFK API
+        setPlayerListName(name, false);
+    }
+    public void setPlayerListName(String name, boolean useMM) {
+        // Purpur end - AFK API
         if (name == null) {
             name = this.getName();
         }
-        this.getHandle().listName = name.equals(this.getName()) ? null : CraftChatMessage.fromStringOrNull(name);
+        this.getHandle().listName = name.equals(this.getName()) ? null : useMM ? io.papermc.paper.adventure.PaperAdventure.asVanilla(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(name)) : CraftChatMessage.fromStringOrNull(name); // Purpur - AFK API
         if (this.getHandle().connection == null) return; // Paper - Updates are possible before the player has fully joined
         for (ServerPlayer player : this.server.getHandle().getPlayers()) {
             if (player.getBukkitEntity().canSee(this)) {
@@ -995,6 +1000,80 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
         }
     }
 
+    // Purpur start - Purpur client support
+    @Override
+    public boolean usesPurpurClient() {
+        return getHandle().connection.purpurClient;
+    }
+    // Purpur end - Purpur client support
+
+    // Purpur start - AFK API
+    @Override
+    public boolean isAfk() {
+        return getHandle().isAfk();
+    }
+
+    @Override
+    public void setAfk(boolean setAfk) {
+        getHandle().setAfk(setAfk);
+    }
+
+    @Override
+    public void resetIdleTimer() {
+        getHandle().resetLastActionTime();
+    }
+    // Purpur end - AFK API
+
+    // Purpur start - Debug Marker API
+    @Override
+    public void sendBlockHighlight(Location location, int duration) {
+        sendBlockHighlight(location, duration, "", 0x6400FF00);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, int argb) {
+        sendBlockHighlight(location, duration, "", argb);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text) {
+        sendBlockHighlight(location, duration, text, 0x6400FF00);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text, int argb) {
+        if (this.getHandle().connection == null) return;
+        // Purpur - TODO: NOOP until further notice
+        //this.getHandle().connection.send(new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(new net.minecraft.network.protocol.common.custom.GameTestAddMarkerDebugPayload(org.bukkit.craftbukkit.util.CraftLocation.toBlockPosition(location), argb, text, duration)));
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, org.bukkit.Color color, int transparency) {
+        sendBlockHighlight(location, duration, "", color, transparency);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text, org.bukkit.Color color, int transparency) {
+        if (transparency < 0 || transparency > 255) throw new IllegalArgumentException("transparency is outside of 0-255 range");
+        sendBlockHighlight(location, duration, text, transparency << 24 | color.asRGB());
+    }
+
+    @Override
+    public void clearBlockHighlights() {
+        if (this.getHandle().connection == null) return;
+        // Purpur - TODO: NOOP until further notice
+        //this.getHandle().connection.send(new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(new net.minecraft.network.protocol.common.custom.GameTestClearMarkersDebugPayload()));
+    }
+    // Purpur end - Debug Marker API
+
+    // Purpur start - Death screen API
+    @Override
+    public void sendDeathScreen(net.kyori.adventure.text.Component message) {
+        if (this.getHandle().connection == null) return;
+        this.getHandle().connection.send(new net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket(getEntityId(), io.papermc.paper.adventure.PaperAdventure.asVanilla(message)));
+    }
+    // Purpur end - Death screen API
+
     @Override
     public void sendBlockDamage(Location loc, float progress, org.bukkit.entity.Entity source) {
         Preconditions.checkArgument(source != null, "source must not be null");
@@ -1311,6 +1390,25 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
     public void lookAt(org.bukkit.entity.@NonNull Entity entity, @NonNull LookAnchor playerAnchor, @NonNull LookAnchor entityAnchor) {
         this.getHandle().lookAt(toNmsAnchor(playerAnchor), ((CraftEntity) entity).getHandle(), toNmsAnchor(entityAnchor));
     }
+
+    // Slice start
+    @Override
+    public void teleportWithoutRespawn(Location location) {
+        ServerPlayer serverPlayer = getHandle();
+        serverPlayer.smoothWorldTeleport = true;
+        teleport(location);
+        serverPlayer.smoothWorldTeleport = false;
+    }
+
+    @Override
+    public boolean teleportWithoutRespawnOptionally(Location location) {
+        ServerPlayer serverPlayer = getHandle();
+        serverPlayer.smoothWorldTeleport = true;
+        boolean teleportResult = teleport(location);
+        serverPlayer.smoothWorldTeleport = false;
+        return teleportResult;
+    }
+    // Slice end
 
     @Override
     protected boolean teleport0(Location location, org.bukkit.event.player.PlayerTeleportEvent.TeleportCause cause, io.papermc.paper.entity.TeleportFlag... flags) {
@@ -2068,8 +2166,15 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
 
     @Override
     public boolean canSee(org.bukkit.entity.Entity entity) {
-        return this.equals(entity) || entity.isVisibleByDefault() ^ this.invertedVisibilityEntities.containsKey(entity.getUniqueId()); // SPIGOT-7312: Can always see self
+        return this.equals(entity) || entity.isVisibleByDefault() ^ (!invertedVisibilityEntities.isEmpty() && this.invertedVisibilityEntities.containsKey(entity.getUniqueId())); // SPIGOT-7312: Can always see self // SparklyPaper - optimize canSee checks
     }
+
+    // SparklyPaper - optimize canSee checks
+    // The check in ChunkMap#updatePlayer already rejects if it is the same entity, so we don't need to check it twice, especially because CraftPlayer's equals check is a bit expensive
+    public boolean canSeeChunkMapUpdatePlayer(org.bukkit.entity.Entity entity) {
+        return entity.isVisibleByDefault() ^ (!invertedVisibilityEntities.isEmpty() && this.invertedVisibilityEntities.containsKey(entity.getUniqueId())); // SPIGOT-7312: Can always see self // SparklyPaper - optimize canSee checks
+    }
+    // SparklyPaper end
 
     public boolean canSeePlayer(UUID uuid) {
         org.bukkit.entity.Entity entity = this.getServer().getPlayer(uuid);
@@ -2510,6 +2615,28 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
     public float getWalkSpeed() {
         return this.getHandle().getAbilities().getWalkingSpeed() * 2.0F;
     }
+
+    // Purpur start - OfflinePlayer API
+    @Override
+    public boolean teleportOffline(Location destination) {
+        return this.teleport(destination);
+    }
+
+    @Override
+    public boolean teleportOffline(Location destination, org.bukkit.event.player.PlayerTeleportEvent.TeleportCause cause) {
+        return this.teleport(destination, cause);
+    }
+
+    @Override
+    public java.util.concurrent.CompletableFuture<Boolean> teleportOfflineAsync(Location destination) {
+        return this.teleportAsync(destination);
+    }
+
+    @Override
+    public java.util.concurrent.CompletableFuture<Boolean> teleportOfflineAsync(Location destination, org.bukkit.event.player.PlayerTeleportEvent.TeleportCause cause) {
+        return this.teleportAsync(destination, cause);
+    }
+    // Purpur end - OfflinePlayer API
 
     private void validateSpeed(float value) {
         Preconditions.checkArgument(value <= 1.0F && value >= -1.0F, "Speed value (%s) need to be between -1 and 1", value);

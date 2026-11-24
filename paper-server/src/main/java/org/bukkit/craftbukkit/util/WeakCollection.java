@@ -164,7 +164,7 @@ public final class WeakCollection<E> implements Collection<E> {
 
     @Override
     public Object[] toArray() {
-        return this.toArray(new Object[0]);
+        return this.toArray(me.titaniumtown.ArrayConstants.emptyObjectArray); // Gale - JettPack - reduce array allocations
     }
 
     @Override

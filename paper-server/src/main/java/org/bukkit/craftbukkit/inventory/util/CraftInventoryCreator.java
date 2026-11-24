@@ -11,7 +11,7 @@ public final class CraftInventoryCreator {
     public static final CraftInventoryCreator INSTANCE = new CraftInventoryCreator();
 
     private final CraftCustomInventoryConverter defaultConverter = new CraftCustomInventoryConverter();
-    private final Map<InventoryType, InventoryConverter> converterMap = new HashMap<>();
+    private final Map<InventoryType, InventoryConverter> converterMap = new java.util.EnumMap<>(InventoryType.class); // Leaf - Use optimized collections in CB classes
 
     private CraftInventoryCreator() {
         this.converterMap.put(InventoryType.CHEST, this.defaultConverter);

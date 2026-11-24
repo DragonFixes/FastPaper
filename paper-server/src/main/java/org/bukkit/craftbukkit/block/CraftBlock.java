@@ -293,7 +293,7 @@ public class CraftBlock implements Block {
 
     @Override
     public org.bukkit.block.BlockState getState() {
-        return CraftBlockStates.getBlockState(this);
+        return CraftBlockStates.getBlockState(this, org.dreeam.leaf.config.modules.opt.TileEntitySnapshotCreation.enabled); // Leaf - EMC - Don't use snapshots for acquiring blockstate
     }
 
     @Override

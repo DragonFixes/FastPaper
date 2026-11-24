@@ -204,11 +204,31 @@ public class CraftBlockData implements BlockData {
         StringBuilder stateString = new StringBuilder(BuiltInRegistries.BLOCK.getKey(this.state.getBlock()).toString());
         if (!singleton) {
             stateString.append('[');
-            stateString.append(states.map(Property.Value::toString).collect(Collectors.joining(",")));
+            // Leaf start - paw optimization
+            java.util.Iterator<?> iterator = states.iterator();
+            while (iterator.hasNext()) {
+                Object val = iterator.next();
+                if (val == null) {
+                    stateString.append("<NULL>");
+                } else {
+                    stateString.append(val.toString());
+                }
+
+                if (iterator.hasNext()) {
+                    stateString.append(',');
+                }
+            }
+            // Leaf end - paw optimization
             stateString.append(']');
         }
         return stateString.toString();
     }
+
+    // Leaf start - paw optimization
+    private <T extends Comparable<T>> String getValueName(Property<T> property, Comparable<?> value) {
+        return property.getName((T) value);
+    }
+    // Leaf end - paw optimization
 
     public Map<String, String> toStates(boolean hideUnspecified) {
         Map<String, String> serializedStates = new HashMap<>();

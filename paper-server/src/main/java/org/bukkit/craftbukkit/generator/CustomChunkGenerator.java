@@ -107,7 +107,7 @@ public class CustomChunkGenerator extends InternalChunkGenerator {
     }
 
     private static WorldgenRandom getSeededRandom() {
-        return new WorldgenRandom(new LegacyRandomSource(INITIAL_SEED));
+        return new WorldgenRandom(org.dreeam.leaf.config.modules.opt.FastRNG.worldgenEnabled() ? new org.dreeam.leaf.util.math.random.FasterRandomSource(0) : new LegacyRandomSource(0)); // Leaf - Faster random generator
     }
 
     @Override
@@ -331,6 +331,13 @@ public class CustomChunkGenerator extends InternalChunkGenerator {
     public WeightedList<MobSpawnSettings.SpawnerData> getMobsAt(final Level level, StructureManager structureManager, MobCategory mobCategory, BlockPos pos) {
         return this.delegate.getMobsAt(level, structureManager, mobCategory, pos);
     }
+
+    // Leaf start - optimize mob spawning
+    @Override
+    public WeightedList<MobSpawnSettings.SpawnerData> getMobsAtChunk(Level level, StructureManager accessor, MobCategory group, BlockPos pos, ChunkAccess chunk) {
+        return this.delegate.getMobsAtChunk(level, accessor, group, pos, chunk);
+    }
+    // Leaf end - optimize mob spawning
 
     @Override
     public void applyBiomeDecoration(WorldGenLevel level, ChunkAccess chunk, StructureManager structureManager) {

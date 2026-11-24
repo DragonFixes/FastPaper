@@ -33,7 +33,11 @@ public final class RegistryValueSerializer<T> extends RegistryEntrySerializer<T,
     protected T convertFromResourceKey(final ResourceKey<T> key) throws SerializationException {
         final T value = this.registry().getValue(key);
         if (value == null) {
-            throw new SerializationException("Missing value in " + this.registry() + " with key " + key.identifier());
+            // Leaf start - Don't throw exception on missing ResourceKey value
+            //throw new SerializationException("Missing value in " + this.registry() + " with key " + key.identifier());
+            com.mojang.logging.LogUtils.getClassLogger().error("Missing value in {} with key {}", this.registry(), key.identifier());
+            return null;
+            // Leaf end - Don't throw exception on missing ResourceKey value
         }
         return value;
     }

@@ -42,7 +42,7 @@ public final class SparksFly {
         this.mainThreadTaskQueue = new ConcurrentLinkedQueue<>();
         this.logger = Logger.getLogger(ID);
         this.logger.log(Level.INFO, "This server bundles the spark profiler. For more information please visit https://docs.papermc.io/paper/profiling");
-        this.spark = PaperSparkModule.create(Compatibility.VERSION_1_0, server, this.logger, new PaperScheduler() {
+        this.spark = org.dreeam.leaf.spark.LeafSparkPlugin.create(Compatibility.VERSION_1_0, server, this.logger, new PaperScheduler() { //  Leaf - better spark integration
             @Override
             public void executeAsync(final Runnable runnable) {
                 MCUtil.scheduleAsyncTask(this.catching(runnable, "asynchronous"));

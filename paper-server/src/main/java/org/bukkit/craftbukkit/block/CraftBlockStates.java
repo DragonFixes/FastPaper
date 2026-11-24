@@ -75,7 +75,7 @@ public final class CraftBlockStates {
         }
     }
 
-    private static final Map<Material, BlockStateFactory<?>> FACTORIES = new IdentityHashMap<>();
+    private static final Map<Material, BlockStateFactory<?>> FACTORIES = new java.util.EnumMap<>(Material.class); // Leaf - Use optimized collections in CB classes
     private static final BlockStateFactory<?> DEFAULT_FACTORY = new BlockStateFactory<>(CraftBlockState.class) {
         @Override
         public CraftBlockState createBlockState(World world, BlockPos pos, net.minecraft.world.level.block.state.BlockState state, BlockEntity blockEntity, boolean useSnapshot) {
@@ -85,7 +85,7 @@ public final class CraftBlockStates {
         }
     };
 
-    private static final Map<BlockEntityType<?>, BlockStateFactory<?>> FACTORIES_BY_BLOCK_ENTITY_TYPE = new HashMap<>();
+    private static final Map<BlockEntityType<?>, BlockStateFactory<?>> FACTORIES_BY_BLOCK_ENTITY_TYPE = new java.util.IdentityHashMap<>(); // Leaf - Use optimized collections in CB classes
     private static void register(BlockEntityType<?> type, BlockStateFactory<?> factory) {
         FACTORIES_BY_BLOCK_ENTITY_TYPE.put(type, factory);
     }
@@ -193,7 +193,7 @@ public final class CraftBlockStates {
     }
 
     public static BlockState getBlockState(Block block) {
-        return CraftBlockStates.getBlockState(block, true);
+        return CraftBlockStates.getBlockState(block, org.dreeam.leaf.config.modules.opt.TileEntitySnapshotCreation.enabled); // Leaf - EMC - Don't use snapshots for acquiring blockstate
     }
 
     public static BlockState getBlockState(Block block, boolean useSnapshot) {

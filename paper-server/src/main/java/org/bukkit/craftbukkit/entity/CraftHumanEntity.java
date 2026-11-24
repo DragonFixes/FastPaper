@@ -303,6 +303,7 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
     @Override
     public void recalculatePermissions() {
         this.perm.recalculatePermissions();
+        getHandle().canPortalInstant = hasPermission("purpur.portal.instant"); // Purpur - Add portal permission bypass
     }
 
     @Override
@@ -433,14 +434,16 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
         BlockPos pos = CraftLocation.toBlockPos(location);
         // Paper start
         MenuProvider menuProvider = Blocks.ENCHANTING_TABLE.defaultBlockState().getMenuProvider(this.getHandle().level(), pos);
-        if (menuProvider == null) {
-            if (!force) {
-                return null;
-            }
+        // Leaf start - Fix Pufferfish and Purpur patches - Fix persistent enchanting table lapis duplication
+        if (force) {
+            Component title = menuProvider == null ? Component.translatable("container.enchant") : menuProvider.getDisplayName();
             menuProvider = new net.minecraft.world.SimpleMenuProvider((syncId, inventory, player) -> {
-                return new net.minecraft.world.inventory.EnchantmentMenu(syncId, inventory, net.minecraft.world.inventory.ContainerLevelAccess.create(this.getHandle().level(), pos));
-            }, Component.translatable("container.enchant"));
+                return new net.minecraft.world.inventory.EnchantmentMenu(syncId, inventory, net.minecraft.world.inventory.ContainerLevelAccess.create(this.getHandle().level(), pos), false);
+            }, title);
+        } else if (menuProvider == null) {
+            return null;
         }
+        // Leaf end - Fix Pufferfish and Purpur patches - Fix persistent enchanting table lapis duplication
         this.getHandle().openMenu(menuProvider);
         // Paper end
 

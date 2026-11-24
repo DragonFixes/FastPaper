@@ -182,10 +182,21 @@ public class WorldConfiguration extends ConfigurationPart {
             @MergeMap
             public Reference2IntMap<MobCategory> spawnLimits = Util.make(new Reference2IntOpenHashMap<>(NaturalSpawner.SPAWNING_CATEGORIES.length), map -> Arrays.stream(NaturalSpawner.SPAWNING_CATEGORIES).forEach(mobCategory -> map.put(mobCategory, -1)));
             @MergeMap
-            public Map<MobCategory, DespawnRangePair> despawnRanges = Arrays.stream(MobCategory.values()).collect(Collectors.toMap(Function.identity(), category -> DespawnRangePair.createDefault()));
+            public Map<MobCategory, DespawnRangePair> despawnRanges = new java.util.EnumMap<>(Arrays.stream(MobCategory.values()).collect(Collectors.toMap(Function.identity(), category -> DespawnRangePair.createDefault()))); // Leaf - optimize despawn - replace with EnumMap
             public DespawnRange.Shape despawnRangeShape = DespawnRange.Shape.ELLIPSOID;
             @MergeMap
             public Reference2IntMap<MobCategory> ticksPerSpawn = Util.make(new Reference2IntOpenHashMap<>(NaturalSpawner.SPAWNING_CATEGORIES.length), map -> Arrays.stream(NaturalSpawner.SPAWNING_CATEGORIES).forEach(mobCategory -> map.put(mobCategory, -1)));
+
+            // Paper PR start - throttle failed spawn attempts
+            public SpawningThrottle spawningThrottle;
+
+            public class SpawningThrottle extends ConfigurationPart {
+                public IntOr.Disabled failedAttemptsThreshold = IntOr.Disabled.DISABLED;
+
+                @MergeMap
+                public Reference2IntMap<MobCategory> throttledTicksPerSpawn = Util.make(new Reference2IntOpenHashMap<>(NaturalSpawner.SPAWNING_CATEGORIES.length), map -> Arrays.stream(NaturalSpawner.SPAWNING_CATEGORIES).forEach(mobCategory -> map.put(mobCategory, -1)));
+            }
+            // Paper PR end - throttle failed spawn attempts
 
             @ConfigSerializable
             public record DespawnRangePair(@Required DespawnRange hard, @Required DespawnRange soft) {

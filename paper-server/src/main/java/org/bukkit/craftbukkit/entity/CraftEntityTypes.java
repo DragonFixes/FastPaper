@@ -278,8 +278,10 @@ public final class CraftEntityTypes {
         }
     };
     // Paper end - respect randomizeData
-    private static final Map<Class<?>, EntityTypeData<?, ?>> CLASS_TYPE_DATA = new HashMap<>();
-    private static final Map<EntityType, EntityTypeData<?, ?>> ENTITY_TYPE_DATA = new HashMap<>();
+    // Leaf start - Use optimized collections in CB classes
+    private static final Map<Class<?>, EntityTypeData<?, ?>> CLASS_TYPE_DATA = new java.util.IdentityHashMap<>();
+    private static final Map<EntityType, EntityTypeData<?, ?>> ENTITY_TYPE_DATA = new java.util.EnumMap<>(EntityType.class);
+    // Leaf end - Use optimized collections in CB classes
 
     static {
         // Living

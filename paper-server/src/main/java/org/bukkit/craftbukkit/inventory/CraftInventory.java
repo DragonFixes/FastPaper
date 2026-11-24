@@ -86,7 +86,7 @@ public class CraftInventory implements Inventory {
 
     @Override
     public void setContents(ItemStack[] items) {
-        Preconditions.checkArgument(items.length <= this.getSize(), "Invalid inventory size (%s); expected %s or less", items.length, this.getSize());
+        // Preconditions.checkArgument(items.length <= this.getSize(), "Invalid inventory size (%s); expected %s or less", items.length, this.getSize()); // Purpur - Barrels and enderchests 6 rows
 
         for (int i = 0; i < this.getSize(); i++) {
             if (i >= items.length) {
@@ -339,8 +339,47 @@ public class CraftInventory implements Inventory {
                 }
             }
         }
+
+        // Leaf start - PlayerInventoryOverflowEvent
+        if (isListeningInventoryOverflowEvent()
+            && !leftover.isEmpty() && this.inventory instanceof net.minecraft.world.entity.player.Inventory && this.inventory.getOwner() instanceof org.bukkit.entity.Player player) {
+            new org.dreeam.leaf.event.player.PlayerInventoryOverflowEvent(player, leftover).callEvent();
+
+            return new HashMap<>();
+        }
+        // Leaf end - PlayerInventoryOverflowEvent
+
         return leftover;
     }
+
+    // Leaf start - PlayerInventoryOverflowEvent
+    private static boolean isListeningInventoryOverflowEvent() {
+        if (org.bukkit.event.HandlerList.isListeningInvOverflowCached == -1) {
+            org.bukkit.event.HandlerList.isListeningInvOverflowCached = 0;
+
+            if (!org.dreeam.leaf.config.modules.gameplay.ConfigurableInventoryOverflowEvent.enabled) {
+                return false;
+            }
+
+            org.bukkit.plugin.RegisteredListener[] listeners = org.dreeam.leaf.event.player.PlayerInventoryOverflowEvent.getHandlerList().getRegisteredListeners();
+            if (listeners.length == 1) {
+                if (listeners[0].getListener().getClass().getName().equals(org.dreeam.leaf.config.modules.gameplay.ConfigurableInventoryOverflowEvent.listenerClass)) {
+                    org.bukkit.event.HandlerList.isListeningInvOverflowCached = 1;
+                    return true;
+                }
+            } else if (listeners.length > 1) {
+                for (org.bukkit.plugin.RegisteredListener registeredListener : listeners) {
+                    if (registeredListener.getListener().getClass().getName().equals(org.dreeam.leaf.config.modules.gameplay.ConfigurableInventoryOverflowEvent.listenerClass)) {
+                        org.bukkit.event.HandlerList.isListeningInvOverflowCached = 1;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return org.bukkit.event.HandlerList.isListeningInvOverflowCached == 1;
+    }
+    // Leaf end - PlayerInventoryOverflowEvent
 
     @Override
     public HashMap<Integer, ItemStack> removeItem(ItemStack... items) {

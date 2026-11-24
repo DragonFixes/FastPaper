@@ -191,7 +191,14 @@ public class CraftChunk implements Chunk {
     @Override
     public boolean isSlimeChunk() {
         // 987234911L is taken from Slime when seeing if a slime can spawn in a chunk
-        return this.level.paperConfig().entities.spawning.allChunksAreSlimeChunks || WorldgenRandom.seedSlimeChunk(this.getX(), this.getZ(), this.getWorld().getSeed(), level.spigotConfig.slimeSeed).nextInt(10) == 0; // Paper
+        // Leaf start - Matter - Secure Seed
+        if (this.level.paperConfig().entities.spawning.allChunksAreSlimeChunks) {
+            return true;
+        }
+        return org.dreeam.leaf.config.modules.misc.SecureSeed.enabled
+            ? level.getChunk(this.getX(), this.getZ()).isSlimeChunk()
+            : WorldgenRandom.seedSlimeChunk(this.getX(), this.getZ(), this.getWorld().getSeed(), level.spigotConfig.slimeSeed).nextInt(10) == 0; // Paper;
+        // Leaf end - Matter - Secure Seed
     }
 
     @Override

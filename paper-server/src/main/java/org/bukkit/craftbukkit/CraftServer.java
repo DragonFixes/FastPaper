@@ -259,7 +259,8 @@ public final class CraftServer implements Server {
     private final StructureManager structureManager;
     final DedicatedServer console;
     private final DedicatedPlayerList playerList;
-    private final Map<String, World> worlds = new LinkedHashMap<>();
+    private final Map<String, World> worlds = new it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap<>(); // Leaf - Replace world map with optimized collection
+    private final it.unimi.dsi.fastutil.objects.Object2ObjectMap<UUID, World> worldsByUUID = new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>(); // Gale - MultiPaper - CraftBukkit UUID to world map
     private YamlConfiguration configuration;
     private YamlConfiguration commandsConfiguration;
     private final Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
@@ -267,7 +268,8 @@ public final class CraftServer implements Server {
     private final EntityMetadataStore entityMetadata = new EntityMetadataStore();
     private final PlayerMetadataStore playerMetadata = new PlayerMetadataStore();
     private final WorldMetadataStore worldMetadata = new WorldMetadataStore();
-    private final Object2IntOpenHashMap<SpawnCategory> spawnCategoryLimit = new Object2IntOpenHashMap<>();
+    private static final SpawnCategory[] SPAWN_CATEGORIES = SpawnCategory.values(); // Leaf - optimize mob spawning
+    private final int[] spawnCategoryLimit = new int[SPAWN_CATEGORIES.length]; // Leaf - optimize mob spawning
     private File container;
     private WarningState warningState = WarningState.DEFAULT;
     public ApiVersion minimumAPI;
@@ -394,6 +396,20 @@ public final class CraftServer implements Server {
         this.paperPluginManager = new io.papermc.paper.plugin.manager.PaperPluginManagerImpl(this, this.commandMap, pluginManager);
         this.pluginManager.paperPluginManager = this.paperPluginManager;
          // Paper end
+        // Purpur start - Language API
+        org.purpurmc.purpur.language.Language.setLanguage(new org.purpurmc.purpur.language.Language() {
+            private net.minecraft.locale.Language language = net.minecraft.locale.Language.getInstance();
+            @Override
+            public boolean has(@org.jetbrains.annotations.NotNull String key) {
+                return language.has(key);
+            }
+
+            @Override
+            public @org.jetbrains.annotations.NotNull String getOrDefault(@org.jetbrains.annotations.NotNull String key) {
+                return language.getOrDefault(key);
+            }
+        });
+        // Purpur end - Language API
 
         CraftRegistry.setMinecraftRegistry(console.registryAccess());
 
@@ -446,6 +462,7 @@ public final class CraftServer implements Server {
         this.saveCommandsConfig();
         this.overrideAllCommandBlockCommands = this.commandsConfiguration.getStringList("command-block-overrides").contains("*");
         this.ignoreVanillaPermissions = this.commandsConfiguration.getBoolean("ignore-vanilla-permissions");
+        java.util.Arrays.fill(spawnCategoryLimit, -1); // Leaf - optimize mob spawning
         this.overrideSpawnLimits();
         console.autosavePeriod = this.configuration.getInt("ticks-per.autosave");
         this.warningState = WarningState.value(this.configuration.getString("settings.deprecated-verbose"));
@@ -477,9 +494,9 @@ public final class CraftServer implements Server {
     }
 
     private void overrideSpawnLimits() {
-        for (SpawnCategory spawnCategory : SpawnCategory.values()) {
+        for (SpawnCategory spawnCategory : SPAWN_CATEGORIES) { // Leaf - optimize mob spawning
             if (CraftSpawnCategory.isValidForLimits(spawnCategory)) {
-                this.spawnCategoryLimit.put(spawnCategory, this.configuration.getInt(CraftSpawnCategory.getConfigNameSpawnLimit(spawnCategory)));
+                this.spawnCategoryLimit[spawnCategory.ordinal()] = this.configuration.getInt(CraftSpawnCategory.getConfigNameSpawnLimit(spawnCategory)); // Leaf - optimize mob spawning
             }
         }
     }
@@ -884,7 +901,7 @@ public final class CraftServer implements Server {
 
     @Override
     public List<World> getWorlds() {
-        return new ArrayList<World>(this.worlds.values());
+        return new it.unimi.dsi.fastutil.objects.ObjectArrayList<World>(this.worlds.values()); // Leaf - Faster CraftServer#getWorlds list creation
     }
 
     @Override
@@ -969,6 +986,8 @@ public final class CraftServer implements Server {
 
         org.spigotmc.SpigotConfig.init((File) this.console.options.valueOf("spigot-settings")); // Spigot
         this.console.paperConfigurations.reloadConfigs(this.console);
+        org.purpurmc.purpur.PurpurConfig.init((File) console.options.valueOf("purpur-settings")); // Purpur - Purpur config files
+        this.console.galeConfigurations.reloadConfigs(this.console); // Gale - Gale configuration
         for (ServerLevel world : this.console.getAllLevels()) {
             // world.serverLevelData.setDifficulty(config.difficulty); // Paper - per level difficulty
             world.setSpawnSettings(world.isSpawningMonsters()); // Paper - per level difficulty (from MinecraftServer#setDifficulty(ServerLevel, Difficulty, boolean))
@@ -984,6 +1003,7 @@ public final class CraftServer implements Server {
                 }
             }
             world.spigotConfig.init(); // Spigot
+            world.purpurConfig.init(); // Purpur - Purpur config files
         }
 
         Plugin[] pluginClone = pluginManager.getPlugins().clone(); // Paper
@@ -1001,6 +1021,7 @@ public final class CraftServer implements Server {
         org.spigotmc.SpigotConfig.registerCommands(); // Spigot
         io.papermc.paper.command.PaperCommands.registerCommands(this.console); // Paper
         this.spark.registerCommandBeforePlugins(this); // Paper - spark
+        org.purpurmc.purpur.PurpurConfig.registerCommands(); // Purpur - Purpur config files
         this.overrideAllCommandBlockCommands = this.commandsConfiguration.getStringList("command-block-overrides").contains("*");
         this.ignoreVanillaPermissions = this.commandsConfiguration.getBoolean("ignore-vanilla-permissions");
 
@@ -1061,6 +1082,13 @@ public final class CraftServer implements Server {
                 plugin.getPluginMeta().getDisplayName(),
                 "This plugin is not properly shutting down its async tasks when it is being shut down. This task may throw errors during the final shutdown logs and might not complete before process dies."
             ));
+            // Gale start - Airplane - print stack trace for plugins not shutting down tasks
+            getLogger().log(Level.SEVERE, String.format("%s Stacktrace", worker.getThread().getName()));
+
+            for (StackTraceElement element : worker.getThread().getStackTrace()) {
+                getLogger().log(Level.SEVERE, "  " + element);
+            }
+            // Gale end - Airplane - print stack trace for plugins not shutting down tasks
             if (console.isDebugging()) io.papermc.paper.util.TraceUtil.dumpTraceForThread(worker.getThread(), "still running"); // Paper - Debugging
         }
     }
@@ -1209,7 +1237,11 @@ public final class CraftServer implements Server {
             .orElse(null);
         RegistryAccess contextRegistryAccess = registryAccess;
         if (worldGenSettings == null) {
-            WorldOptions worldOptions = new WorldOptions(creator.seed(), creator.generateStructures(), creator.bonusChest());
+            // Leaf start - Matter - Secure Seed
+            WorldOptions worldOptions = org.dreeam.leaf.config.modules.misc.SecureSeed.enabled
+                ? new WorldOptions(creator.seed(), su.plo.matter.Globals.createRandomWorldSeed(), creator.generateStructures(), creator.bonusChest())
+                : new WorldOptions(creator.seed(), creator.generateStructures(), creator.bonusChest());
+            // Leaf end - Matter - Secure Seed
 
             String flatGenSettings = creator.generatorSettings();
             if (flatGenSettings.isEmpty()) {
@@ -1245,7 +1277,7 @@ public final class CraftServer implements Server {
             net.minecraft.server.Main.forceUpgrade(this.console.storageSource, DataFixers.getDataFixer(), this.console.options.has("eraseCache"), () -> true, contextRegistryAccess, this.console.options.has("recreateRegionFiles"));
         }
 
-        long biomeZoomSeed = BiomeManager.obfuscateSeed(genSettingsFinal.options().seed());
+        long biomeZoomSeed = genSettingsFinal.options().biomeZoomSeed(); // Leaf - cache biome zoom seed
         LevelStem customStem = genSettingsFinal.dimensions().get(actualDimension).orElse(null);
         if (customStem == null) {
             customStem = levelStemRegistry.getValue(actualDimension);
@@ -1340,6 +1372,7 @@ public final class CraftServer implements Server {
             this.getLogger().log(Level.SEVERE, null, ex);
         }
 
+        this.worldsByUUID.remove(world.getUID()); // Gale - MultiPaper - CraftBukkit UUID to world map
         this.worlds.remove(world.getName().toLowerCase(Locale.ROOT));
         this.console.removeLevel(handle);
         return true;
@@ -1371,12 +1404,7 @@ public final class CraftServer implements Server {
 
     @Override
     public World getWorld(UUID uid) {
-        for (World world : this.worlds.values()) {
-            if (world.getUID().equals(uid)) {
-                return world;
-            }
-        }
-        return null;
+        return this.worldsByUUID.get(uid); // Gale - MultiPaper - CraftBukkit UUID to world map
     }
 
     @Override
@@ -1392,6 +1420,7 @@ public final class CraftServer implements Server {
             System.out.println("World " + world.key().asString() + " is a duplicate of another world and has been prevented from loading. Please remove or change the duplicated Paper world metadata before loading it again.");
             return;
         }
+        this.worldsByUUID.put(world.getUID(), world); // Gale - MultiPaper - CraftBukkit UUID to world map
         this.worlds.put(world.getName().toLowerCase(Locale.ROOT), world);
     }
 
@@ -1435,6 +1464,44 @@ public final class CraftServer implements Server {
         craftRecipe.addToRecipeManager();
         return true;
     }
+
+    // Purpur start - Debug Marker API
+    @Override
+    public void sendBlockHighlight(Location location, int duration) {
+        sendBlockHighlight(location, duration, "", 0x6400FF00);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, int argb) {
+        sendBlockHighlight(location, duration, "", argb);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text) {
+        sendBlockHighlight(location, duration, text, 0x6400FF00);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text, int argb) {
+        this.worlds.forEach((name, world) -> world.sendBlockHighlight(location, duration, text, argb));
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, org.bukkit.Color color, int transparency) {
+        sendBlockHighlight(location, duration, "", color, transparency);
+    }
+
+    @Override
+    public void sendBlockHighlight(Location location, int duration, String text, org.bukkit.Color color, int transparency) {
+        if (transparency < 0 || transparency > 255) throw new IllegalArgumentException("transparency is outside of 0-255 range");
+        sendBlockHighlight(location, duration, text, transparency << 24 | color.asRGB());
+    }
+
+    @Override
+    public void clearBlockHighlights() {
+        this.worlds.forEach((name, world) -> world.clearBlockHighlights());
+    }
+    // Purpur end - Debug Marker API
 
     @Override
     public boolean addRecipes(Iterable<Recipe> recipes) {
@@ -2314,7 +2381,7 @@ public final class CraftServer implements Server {
     }
 
     public int getSpawnLimitUnsafe(final SpawnCategory spawnCategory) {
-        return this.spawnCategoryLimit.getOrDefault(spawnCategory, -1);
+        return this.spawnCategoryLimit[spawnCategory.ordinal()]; // Leaf - optimize mob spawning
     }
 
     @Override
@@ -2738,6 +2805,26 @@ public final class CraftServer implements Server {
             return CraftServer.this.console.paperConfigurations.createLegacyObject(CraftServer.this.console);
         }
 
+        // Purpur start - Purpur config files
+        @Override
+        public YamlConfiguration getPurpurConfig() {
+            return org.purpurmc.purpur.PurpurConfig.config;
+        }
+
+        @Override
+        public java.util.Properties getServerProperties() {
+            return getProperties().properties;
+        }
+        // Purpur end - Purpur config files
+
+        // Gale start - Gale configuration - API
+        @Override
+        public YamlConfiguration getGaleConfig()
+        {
+            return CraftServer.this.console.galeConfigurations.createLegacyObject(CraftServer.this.console);
+        }
+        // Gale end - Gale configuration - API
+
         @Override
         public void restart() {
             CraftServer.this.restart();
@@ -2769,8 +2856,40 @@ public final class CraftServer implements Server {
 
     @Override
     public double[] getTPS() {
+        if (org.dreeam.leaf.config.modules.misc.Including5sIngetTPS.enabled) return getTPSIncluding5SecondAverage(); // Leaf - Including 5s in getTPS()
         return this.getServer().getTPS();
     }
+
+    // Gale start - Purpur - 5-second TPS average
+    @Override
+    public double[] getTPSIncluding5SecondAverage() {
+        return MinecraftServer.getServer().getTPSIncluding5Seconds();
+    }
+    // Gale end - Purpur - 5-second TPS average
+
+    // Gale start - specific interval TPS API
+    // Gale start - Purpur - 5-second TPS average
+    @Override
+    public double get5SecondTPSAverage() {
+        return MinecraftServer.getServer().getTPSIncluding5SecondsReadOnly()[0];
+    }
+    // Gale end - Purpur - 5-second TPS average
+
+    @Override
+    public double get1MinuteTPSAverage() {
+        return MinecraftServer.getServer().getTPSIncluding5SecondsReadOnly()[1];
+    }
+
+    @Override
+    public double get5MinuteTPSAverage() {
+        return MinecraftServer.getServer().getTPSIncluding5SecondsReadOnly()[2];
+    }
+
+    @Override
+    public double get15MinuteTPSAverage() {
+        return MinecraftServer.getServer().getTPSIncluding5SecondsReadOnly()[3];
+    }
+    // Gale end - specific interval TPS API
 
     @Override
     public void playSound(final net.kyori.adventure.sound.Sound sound) {
@@ -2973,4 +3092,35 @@ public final class CraftServer implements Server {
     public void allowPausing(final Plugin plugin, final boolean value) {
         this.console.addPluginAllowingSleep(plugin.getName(), value);
     }
+
+    // Purpur start - Bring back server name
+    @Override
+    public String getServerName() {
+        return this.getProperties().serverName;
+    }
+    // Purpur end - Bring back server name
+
+    // Purpur start - Lagging threshold
+    @Override
+    public boolean isLagging() {
+        return getServer().lagging;
+    }
+    // Purpur end - Lagging threshold
+
+    // Gale start - YAPFA - last tick time - API
+    @Override
+    public long getLastTickTotalTime() {
+        return MinecraftServer.lastTickProperTime + MinecraftServer.lastTickOversleepTime;
+    }
+
+    @Override
+    public long getLastTickProperTime() {
+        return MinecraftServer.lastTickProperTime;
+    }
+
+    @Override
+    public long getLastTickOversleepTime() {
+        return MinecraftServer.lastTickOversleepTime;
+    }
+    // Gale end - YAPFA - last tick time - API
 }

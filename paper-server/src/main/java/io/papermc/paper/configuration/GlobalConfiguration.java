@@ -355,9 +355,11 @@ public class GlobalConfiguration extends ConfigurationPart {
                     _chatExecutorMaxSize = _chatExecutorCoreSize;
                 }
 
+                if (!org.dreeam.leaf.config.modules.opt.VirtualThreadSupport.asyncChatExecutor) { // Leaf - Virtual thread support for chat executor
                 java.util.concurrent.ThreadPoolExecutor executor = (java.util.concurrent.ThreadPoolExecutor) net.minecraft.server.MinecraftServer.getServer().chatExecutor;
                 executor.setCorePoolSize(_chatExecutorCoreSize);
                 executor.setMaximumPoolSize(_chatExecutorMaxSize);
+                } // Leaf - Virtual thread support for chat executor
             }
         }
         public int maxJoinsPerTick = 5;

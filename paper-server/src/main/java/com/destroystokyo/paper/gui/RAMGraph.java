@@ -41,6 +41,11 @@ public class RAMGraph extends JComponent {
     private int currentTick;
 
     public RAMGraph() {
+        // Leaf start - GUI theme
+        boolean darkTheme = org.dreeam.leaf.gui.GuiTheme.isDark();
+        setBackground(darkTheme ? javax.swing.UIManager.getColor("TextArea.background") : Color.WHITE);
+        setForeground(darkTheme ? javax.swing.UIManager.getColor("TextArea.foreground") : Color.BLACK);
+        // Leaf end - GUI theme
         ToolTipManager.sharedInstance().setInitialDelay(0);
 
         addMouseListener(new MouseAdapter() {
@@ -97,10 +102,10 @@ public class RAMGraph extends JComponent {
 
     @Override
     public void paint(Graphics graphics) {
-        graphics.setColor(new Color(0xFFFFFFFF));
+        graphics.setColor(getBackground()); // Leaf - GUI theme
         graphics.fillRect(0, 0, 350, 100);
 
-        graphics.setColor(new Color(0x888888));
+        graphics.setColor(org.dreeam.leaf.gui.GuiTheme.graphGridColor()); // Leaf - GUI theme
         graphics.drawLine(1, 25, 348, 25);
         graphics.drawLine(1, 50, 348, 50);
         graphics.drawLine(1, 75, 348, 75);
@@ -109,7 +114,7 @@ public class RAMGraph extends JComponent {
         for (GraphData data : DATA) {
             i++;
             if ((i + currentTick) % 120 == 0) {
-                graphics.setColor(new Color(0x888888));
+                graphics.setColor(org.dreeam.leaf.gui.GuiTheme.graphGridColor()); // Leaf - GUI theme
                 graphics.drawLine(i, 1, i, 99);
             }
             int used = data.getUsedPercent();
@@ -122,7 +127,7 @@ public class RAMGraph extends JComponent {
             }
         }
 
-        graphics.setColor(new Color(0xFF000000));
+        graphics.setColor(getForeground()); // Leaf - GUI theme
         graphics.drawRect(0, 0, 348, 100);
 
         Point m = null;
@@ -134,7 +139,7 @@ public class RAMGraph extends JComponent {
         if (m != null && m.x > 0 && m.x < 348 && m.y > 0 && m.y < 100) {
             GraphData data = DATA.get(m.x);
             int used = data.getUsedPercent();
-            graphics.setColor(new Color(0x000000));
+            graphics.setColor(getForeground()); // Leaf - GUI theme
             graphics.drawLine(m.x, 1, m.x, 99);
             graphics.drawOval(m.x - 2, 100 - used - 2, 5, 5);
             graphics.setColor(data.getLineColor());

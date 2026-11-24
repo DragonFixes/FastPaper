@@ -15,11 +15,20 @@ import org.bukkit.entity.EntityType;
 
 public class CraftEntityType {
 
+    private static final java.util.Map<net.minecraft.world.entity.EntityType<?>, EntityType> MINECRAFT_TO_BUKKIT_KEY_CACHE = new java.util.concurrent.ConcurrentHashMap<>(); // Leaf - Cache CraftEntityType#minecraftToBukkit convert
+
     public static EntityType minecraftToBukkit(net.minecraft.world.entity.EntityType<?> minecraft) {
         Preconditions.checkArgument(minecraft != null);
+        // Leaf start - Cache CraftEntityType#minecraftToBukkit convert
+        EntityType asBukkit = MINECRAFT_TO_BUKKIT_KEY_CACHE.get(minecraft);
 
+        if (org.dreeam.leaf.config.modules.opt.EnableCachedMTBEntityTypeConvert.enabled && asBukkit != null) {
+            return asBukkit;
+        }
+        // Leaf end - Cache CraftEntityType#minecraftToBukkit convert
         EntityType bukkit = Registry.ENTITY_TYPE.get(CraftNamespacedKey.fromMinecraft(net.minecraft.world.entity.EntityType.getKey(minecraft)));
         Preconditions.checkArgument(bukkit != null);
+        MINECRAFT_TO_BUKKIT_KEY_CACHE.put(minecraft, bukkit); // Leaf - Cache CraftEntityType#minecraftToBukkit convert
         return bukkit;
     }
 

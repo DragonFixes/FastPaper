@@ -73,6 +73,14 @@ public class CraftPlayerProfile implements PlayerProfile, SharedPlayerProfile {
         copyProfileProperties(resolvableProfile.partialProfile(), this.profile);
     }
 
+    // Leaf start - Configurable vanilla username check
+    public CraftPlayerProfile(UUID id, String name, boolean useCustomValidation) {
+        this.profile = createAuthLibProfile(id, name, useCustomValidation);
+        this.emptyName = name == null;
+        this.emptyUUID = id == null;
+    }
+    // Leaf end - Configurable vanilla username check
+
     @Override
     public boolean hasProperty(String property) {
         return profile.properties().containsKey(property);
@@ -211,6 +219,14 @@ public class CraftPlayerProfile implements PlayerProfile, SharedPlayerProfile {
         return clone;
     }
 
+    // Leaf start - Configurable vanilla username check
+    public CraftPlayerProfile cloneCustom() {
+        CraftPlayerProfile clone = new CraftPlayerProfile(this.getId(), this.getName(), org.dreeam.leaf.config.modules.misc.VanillaUsernameCheck.useUsernameRegex);
+        clone.setProperties(getProperties());
+        return clone;
+    }
+    // Leaf end - Configurable vanilla username check
+
     @Override
     public boolean isComplete() {
         return this.getId() != null && StringUtils.isNotBlank(this.getName());
@@ -330,15 +346,21 @@ public class CraftPlayerProfile implements PlayerProfile, SharedPlayerProfile {
         }
     }
 
-    private static GameProfile createAuthLibProfile(UUID uniqueId, String name) {
+    // Leaf start - Configurable vanilla username check
+    private static GameProfile createAuthLibProfile(UUID uniqueId, String name, boolean useCustomValidation) {
         Preconditions.checkArgument(name == null || name.length() <= 16, "Name cannot be longer than 16 characters");
-        Preconditions.checkArgument(name == null || StringUtil.isValidPlayerName(name), "The name of the profile contains invalid characters: %s", name);
+        Preconditions.checkArgument(name == null || (useCustomValidation ? StringUtil.isReasonablePlayerName(name) : StringUtil.isValidPlayerName(name)), "The name of the profile contains invalid characters: %s", name);
         return new GameProfile(
             uniqueId != null ? uniqueId : Util.NIL_UUID,
             name != null ? name : "",
             new MutablePropertyMap()
         );
     }
+
+    private static GameProfile createAuthLibProfile(UUID uniqueId, String name) {
+        return createAuthLibProfile(uniqueId, name, false);
+    }
+    // Leaf end - Configurable vanilla username check
 
     private static ProfileProperty toBukkit(Property property) {
         return new ProfileProperty(property.name(), property.value(), property.signature());
@@ -351,6 +373,13 @@ public class CraftPlayerProfile implements PlayerProfile, SharedPlayerProfile {
     public static Property asAuthlib(ProfileProperty property) {
         return new Property(property.getName(), property.getValue(), property.getSignature());
     }
+
+    // Leaf start - Configurable vanilla username check
+    public static GameProfile asAuthlibCopyCustomValidation(PlayerProfile profile) {
+        CraftPlayerProfile craft = ((CraftPlayerProfile) profile);
+        return asAuthlibCopy(craft.cloneCustom());
+    }
+    // Leaf end - Configurable vanilla username check
 
     public static GameProfile asAuthlibCopy(PlayerProfile profile) {
         CraftPlayerProfile craft = ((CraftPlayerProfile) profile);

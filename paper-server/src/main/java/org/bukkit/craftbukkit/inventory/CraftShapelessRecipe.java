@@ -50,7 +50,8 @@ public class CraftShapelessRecipe extends ShapelessRecipe implements CraftRecipe
             new net.minecraft.world.item.crafting.Recipe.CommonInfo(true),
             new net.minecraft.world.item.crafting.CraftingRecipe.CraftingBookInfo(CraftRecipe.getCategory(this.getCategory()), this.getGroup()),
             CraftItemStack.asTemplate(this.getResult()),
-            ingredients
+            ingredients,
+            true // Gale - Airplane - simpler ShapelessRecipe comparison for vanilla
         ));
     }
 }

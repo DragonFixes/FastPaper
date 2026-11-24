@@ -13,6 +13,10 @@ import java.util.function.Consumer;
 public final class MoonriseCommon {
 
     private static final Logger LOGGER = LogUtils.getClassLogger();
+    // Gale start - metrics - chunk system IO threads
+    public static int chunkSystemIOThreads;
+    public static int chunkSystemWorkerThreads;
+    // Gale end - metrics - chunk system IO threads
 
     public static final long WORKER_QUEUE_HOLD_TIME = (long)(20.0e6); // 20ms
     public static final BalancedPrioritisedThreadPool WORKER_POOL = new BalancedPrioritisedThreadPool(
@@ -55,6 +59,11 @@ public final class MoonriseCommon {
         }
 
         final int ioThreads = Math.max(1, configIoThreads);
+
+        // Gale start - metrics - chunk system IO threads
+        chunkSystemIOThreads = ioThreads;
+        chunkSystemWorkerThreads = workerThreads;
+        // Gale end - metrics - chunk system IO threads
 
         WORKER_POOL.adjustThreadCount(workerThreads);
         IO_POOL.adjustThreadCount(ioThreads);

@@ -10,9 +10,7 @@ public final class IntList {
         this.map.defaultReturnValue(Integer.MIN_VALUE);
     }
 
-    private static final int[] EMPTY_LIST = new int[0];
-
-    private int[] byIndex = EMPTY_LIST;
+    private int[] byIndex = me.titaniumtown.ArrayConstants.emptyIntArray; // Gale - JettPack - reduce array allocations
     private int count;
 
     public int size() {

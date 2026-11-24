@@ -20,8 +20,8 @@ public final class DespawnRange {
 
     public static final TypeSerializer<DespawnRange> SERIALIZER = new Serializer();
 
-    private final IntOr.Default horizontalLimit;
-    private final IntOr.Default verticalLimit;
+    public final IntOr.Default horizontalLimit; // Leaf - optimize despawn
+    public final IntOr.Default verticalLimit; // Leaf - optimize despawn
     private final boolean wasDefinedViaLongSyntax;
 
     // cached values

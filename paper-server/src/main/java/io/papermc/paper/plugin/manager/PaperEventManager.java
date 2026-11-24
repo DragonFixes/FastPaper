@@ -45,14 +45,15 @@ class PaperEventManager {
 
     private void swift$callEvent(@NotNull Event event) {
         // Swift end - async entities
+        // Leaf start - Skip event if no listeners
+        RegisteredListener[] listeners = event.getHandlers().getRegisteredListeners();
+        if (listeners.length == 0) return;
+        // Leaf end - Skip event if no listeners
         if (event.isAsynchronous() && this.server.isPrimaryThread()) {
             throw new IllegalStateException(event.getEventName() + " may only be triggered asynchronously.");
         } else if (!event.isAsynchronous() && !this.server.isPrimaryThread() && !this.server.isStopping()) {
             throw new IllegalStateException(event.getEventName() + " may only be triggered synchronously.");
         }
-
-        HandlerList handlers = event.getHandlers();
-        RegisteredListener[] listeners = handlers.getRegisteredListeners();
 
         for (RegisteredListener registration : listeners) {
             if (!registration.getPlugin().isEnabled()) {

@@ -152,7 +152,6 @@ public class SpigotConfig {
     }
 
     public static String whitelistMessage;
-    public static String unknownCommandMessage;
     public static String serverFullMessage;
     public static String outdatedClientMessage = "Outdated client! Please use {0}";
     public static String outdatedServerMessage = "Outdated server! I'm still on {0}";
@@ -168,7 +167,6 @@ public class SpigotConfig {
         }
 
         SpigotConfig.whitelistMessage = SpigotConfig.transform(SpigotConfig.getString("messages.whitelist", "You are not whitelisted on this server!"));
-        SpigotConfig.unknownCommandMessage = SpigotConfig.transform(SpigotConfig.getString("messages.unknown-command", "Unknown command. Type \"/help\" for help."));
         SpigotConfig.serverFullMessage = SpigotConfig.transform(SpigotConfig.getString("messages.server-full", "The server is full!"));
         SpigotConfig.outdatedClientMessage = SpigotConfig.transform(SpigotConfig.getString("messages.outdated-client", SpigotConfig.outdatedClientMessage));
         SpigotConfig.outdatedServerMessage = SpigotConfig.transform(SpigotConfig.getString("messages.outdated-server", SpigotConfig.outdatedServerMessage));

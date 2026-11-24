@@ -178,7 +178,7 @@ public class PaperCommands implements Commands, PaperRegistrar<LifecycleEventOwn
                     })
             )
             .executes((stack) -> {
-                basicCommand.execute(stack.getSource(), new String[0]);
+                basicCommand.execute(stack.getSource(), me.titaniumtown.ArrayConstants.emptyStringArray); // Gale - JettPack - reduce array allocations
                 return com.mojang.brigadier.Command.SINGLE_SUCCESS;
             });
 

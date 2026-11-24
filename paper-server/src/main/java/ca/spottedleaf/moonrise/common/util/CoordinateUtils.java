@@ -21,7 +21,7 @@ public final class CoordinateUtils {
     }
 
     public static long getChunkKey(final ChunkPos pos) {
-        return ((long)pos.z() << 32) | (pos.x() & 0xFFFFFFFFL);
+        return ((long)pos.z() << 32) | (pos.x() & 0xFFFFFFFFL); // Leaf - Cache chunk key - diff on change
     }
 
     public static long getChunkKey(final SectionPos pos) {

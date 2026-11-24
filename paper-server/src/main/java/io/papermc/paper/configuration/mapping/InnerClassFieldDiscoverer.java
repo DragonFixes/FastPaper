@@ -97,7 +97,19 @@ public final class InnerClassFieldDiscoverer implements FieldDiscoverer<Map<Fiel
         return create(overrides, fieldProcessors);
     }
 
-    public static FieldDiscoverer<?> globalConfig(final List<Definition<?, ?, ? extends FieldProcessor.Factory<?, ?>>> fieldProcessors) {
+    // Gale start - Gale configuration
+    public static FieldDiscoverer<?> galeWorldConfig(final io.papermc.paper.configuration.Configurations.ContextMap contextMap, final List<Definition<?, ?, ? extends FieldProcessor.Factory<?, ?>>> fieldProcessors) {
+        final Map<Class<?>, Object> overrides = Map.of(
+            org.galemc.gale.configuration.GaleWorldConfiguration.class, new org.galemc.gale.configuration.GaleWorldConfiguration(
+                contextMap.require(io.papermc.paper.configuration.PaperConfigurations.SPIGOT_WORLD_CONFIG_CONTEXT_KEY).get(),
+                contextMap.require(io.papermc.paper.configuration.Configurations.WORLD_KEY)
+            )
+        );
+        return create(overrides, fieldProcessors);
+    }
+    // Gale end - Gale configuration
+
+    public static FieldDiscoverer<?> globalConfig(final List<Definition<?, ?, ? extends FieldProcessor.Factory<?, ?>>> fieldProcessors) { // Gale - Gale configuration
         return create(Collections.emptyMap(), fieldProcessors);
     }
 }
