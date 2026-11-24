@@ -9,7 +9,7 @@ public class AsyncMobSpawning extends ConfigModule {
         return ConfigCategory.ASYNC.basePath() + ".async-mob-spawning";
     }
 
-    public static boolean enabled = true;
+    public static boolean enabled = false;
     private static boolean asyncMobSpawningInitialized;
 
     @Override

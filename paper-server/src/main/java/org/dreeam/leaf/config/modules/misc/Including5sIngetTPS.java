@@ -9,7 +9,7 @@ public class Including5sIngetTPS extends ConfigModule {
         return ConfigCategory.MISC.basePath();
     }
 
-    public static boolean enabled = true;
+    public static boolean enabled = false;
 
     @Override
     public void onLoaded() {

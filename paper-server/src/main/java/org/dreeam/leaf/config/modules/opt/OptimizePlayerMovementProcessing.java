@@ -9,7 +9,7 @@ public class OptimizePlayerMovementProcessing extends ConfigModule {
         return ConfigCategory.PERF.basePath();
     }
 
-    public static boolean enabled = true;
+    public static boolean enabled = false;
 
     @Override
     public void onLoaded() {

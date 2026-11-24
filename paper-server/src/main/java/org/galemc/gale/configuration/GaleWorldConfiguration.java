@@ -36,19 +36,19 @@ public class GaleWorldConfiguration extends ConfigurationPart {
     public class SmallOptimizations extends ConfigurationPart {
 
         public boolean saveFireworks = true; // Gale - EMC - make saving fireworks configurable
-        public boolean useOptimizedSheepOffspringColor = true; // Gale - carpet-fixes - optimize sheep offspring color
+        public boolean useOptimizedSheepOffspringColor = false; // Gale - carpet-fixes - optimize sheep offspring color
 
         // Gale start - Airplane - reduce projectile chunk loading
         public MaxProjectileChunkLoads maxProjectileChunkLoads;
 
         public class MaxProjectileChunkLoads extends ConfigurationPart {
 
-            public int perTick = 10;
+            public int perTick = -1;
 
             public PerProjectile perProjectile;
 
             public class PerProjectile extends ConfigurationPart {
-                public int max = 10;
+                public int max = -1;
                 public boolean resetMovementAfterReachLimit = false;
                 public boolean removeFromWorldAfterReachLimit = false;
             }
@@ -60,16 +60,16 @@ public class GaleWorldConfiguration extends ConfigurationPart {
 
         public class ReducedIntervals extends ConfigurationPart {
 
-            public int checkStuckInWall = 10; // Gale - Pufferfish - reduce in wall checks
-            public int villagerItemRepickup = 100; // Gale - EMC - reduce villager item re-pickup
+            public int checkStuckInWall = 1; // Gale - Pufferfish - reduce in wall checks
+            public int villagerItemRepickup = -1; // Gale - EMC - reduce villager item re-pickup
 
         }
 
         public LoadChunks loadChunks;
 
         public class LoadChunks extends ConfigurationPart {
-            public boolean toSpawnPhantoms = false; // Gale - MultiPaper - don't load chunks to spawn phantoms
-            public boolean toActivateClimbingEntities = false; // Gale - don't load chunks to activate climbing entities
+            public boolean toSpawnPhantoms = true; // Gale - MultiPaper - don't load chunks to spawn phantoms
+            public boolean toActivateClimbingEntities = true; // Gale - don't load chunks to activate climbing entities
         }
 
     }
@@ -97,7 +97,7 @@ public class GaleWorldConfiguration extends ConfigurationPart {
         }
 
         public boolean entitiesCanRandomStrollIntoNonTickingChunks = true; // Gale - MultiPaper - prevent entities random strolling into non-ticking chunks
-        public double entityWakeUpDurationRatioStandardDeviation = 0.2; // Gale - variable entity wake-up duration
+        public double entityWakeUpDurationRatioStandardDeviation = 0.0; // Gale - variable entity wake-up duration
         public boolean hideFlamesOnEntitiesWithFireResistance = false; // Gale - Slice - hide flames on entities with fire resistance
         public boolean tryRespawnEnderDragonAfterEndCrystalPlace = true; // Gale - Pufferfish - make ender dragon respawn attempt after placing end crystals configurable
 
