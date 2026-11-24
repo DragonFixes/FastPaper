@@ -112,8 +112,8 @@ final class SwiftBrainLoopTests {
         helper.succeed();
     }
 
-    /** FastPaper brain switches 0059-0063, in patch order. */
-    private static final String[] BRAIN_SWITCHES = {"lookInteractTypeFirst", "behaviorRateCache", "flatMemoryCheck", "gateIndexLoop", "brainDirectDispatch"};
+    /** FastPaper brain switches 0059-0063 and 0069, in patch order. */
+    private static final String[] BRAIN_SWITCHES = {"lookInteractTypeFirst", "behaviorRateCache", "flatMemoryCheck", "gateIndexLoop", "brainDirectDispatch", "lookInteractTypeIndex"};
 
     private static void setBrainSwitch(final int index, final boolean on) {
         switch (index) {
@@ -122,6 +122,7 @@ final class SwiftBrainLoopTests {
             case 2 -> net.minecraft.world.entity.ai.behavior.Behavior.SWIFT_FLAT_MEMORY_CHECK = on;
             case 3 -> net.minecraft.world.entity.ai.behavior.GateBehavior.SWIFT_GATE_INDEX_LOOP = on;
             case 4 -> io.papermc.paper.swift.entity.SwiftBehaviors.enabled = on;
+            case 5 -> net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities.SWIFT_TYPE_INDEX = on;
             default -> throw new IllegalArgumentException();
         }
     }
@@ -150,7 +151,8 @@ final class SwiftBrainLoopTests {
             net.minecraft.world.entity.ai.behavior.Behavior.SWIFT_RATE_CACHE,
             net.minecraft.world.entity.ai.behavior.Behavior.SWIFT_FLAT_MEMORY_CHECK,
             net.minecraft.world.entity.ai.behavior.GateBehavior.SWIFT_GATE_INDEX_LOOP,
-            io.papermc.paper.swift.entity.SwiftBehaviors.enabled
+            io.papermc.paper.swift.entity.SwiftBehaviors.enabled,
+            net.minecraft.world.entity.ai.memory.NearestVisibleLivingEntities.SWIFT_TYPE_INDEX
         };
         final int variants = 2 + BRAIN_SWITCHES.length;
         final long[][] rounds = new long[variants][7];

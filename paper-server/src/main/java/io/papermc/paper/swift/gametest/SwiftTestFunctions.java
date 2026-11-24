@@ -102,6 +102,9 @@ public final class SwiftTestFunctions implements TestFunctionLoader {
         register.accept(key("sort_differential"), SwiftSortTests::differential);
         register.accept(key("sort_sensor_memory_nearest_first"), SwiftSortTests::sensorMemoryNearestFirst);
         register.accept(key("bench_sensor_sort"), SwiftSortTests::bench);
+        register.accept(key("look_interact_type_index_differential"), SwiftLookInteractTests::differential);
+        register.accept(key("look_interact_villager_targets_player"), SwiftLookInteractTests::villagerTargetsNearbyPlayer);
+        register.accept(key("bench_look_interact"), SwiftLookInteractTests::bench);
     }
 
     // Hopper above a chest pulls a dropped item and pushes it down. Guards hopper / item-entity optimisations.
