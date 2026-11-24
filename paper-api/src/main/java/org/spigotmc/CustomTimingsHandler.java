@@ -23,6 +23,15 @@
  */
 package org.spigotmc;
 
+import io.papermc.paper.plugin.provider.classloader.ConfiguredPluginClassLoader;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import org.bukkit.Bukkit;
+import org.bukkit.Warning;
+import org.bukkit.plugin.AuthorNagException;
+
 // Leaf start - Remove Timings
 /**
  * @deprecated Timings has been removed
@@ -30,8 +39,45 @@ package org.spigotmc;
  */
 @Deprecated(forRemoval = true)
 public final class CustomTimingsHandler {
-    public CustomTimingsHandler(final String name) {new org.bukkit.plugin.AuthorNagException("Deprecated use of CustomTimingsHandler. Timings has been removed.").printStackTrace();}
+    private static final StackWalker WALKER = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
+    // Plugins such as libraries create a handler per listener or task, so the nag is reported once per plugin.
+    private static final Set<String> NAGGED = ConcurrentHashMap.newKeySet();
+
+    public CustomTimingsHandler(final String name) {
+        nag();
+    }
+
     public void startTiming() {}
     public void stopTiming() {}
+
+    private static void nag() {
+        final Warning.WarningState state;
+        try {
+            state = Bukkit.getWarningState();
+        } catch (final RuntimeException e) {
+            return; // no server (e.g. unit tests)
+        }
+        if (state == Warning.WarningState.OFF) {
+            return;
+        }
+        final String plugin = callingPlugin().orElse("unknown plugin");
+        if (!NAGGED.add(plugin)) {
+            return;
+        }
+        final String message = "\"" + plugin + "\" uses the deprecated CustomTimingsHandler; timings have been removed, so it does nothing. Please notify the plugin's authors.";
+        if (state == Warning.WarningState.ON) {
+            Bukkit.getLogger().log(Level.WARNING, message, new AuthorNagException(message));
+        } else {
+            Bukkit.getLogger().warning(message);
+        }
+    }
+
+    private static Optional<String> callingPlugin() {
+        return WALKER.walk(frames -> frames
+            .map(StackWalker.StackFrame::getDeclaringClass)
+            .filter(c -> c.getClassLoader() instanceof ConfiguredPluginClassLoader)
+            .map(c -> ((ConfiguredPluginClassLoader) c.getClassLoader()).getConfiguration().getName())
+            .findFirst());
+    }
     // Leaf end - Remove Timings
 }
