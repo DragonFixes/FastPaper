@@ -117,6 +117,14 @@ abstract class MockitoAgentProvider : CommandLineArgumentProvider {
 
 dependencies {
     implementation(project(":paper-api"))
+
+    // Leaf libraries
+    implementation("com.github.thatsmusic99:ConfigurationMaster-API:v2.0.0-rc.3") { // Leaf config
+        exclude(group = "org.yaml", module = "snakeyaml")
+    }
+    implementation("com.github.luben:zstd-jni:1.5.7-9") // Luminol - Buffered Linear
+    implementation("net.openhft:zero-allocation-hashing:2026.0") // Luminol - Buffered Linear
+    implementation("com.github.ben-manes.caffeine:caffeine:3.2.4")
     implementation(platform("ca.spottedleaf.leafpile:bom:1.3.2"))
     implementation("ca.spottedleaf.leafpile:common")
     implementation("ca.spottedleaf.leafpile:concurrentutil")
@@ -137,13 +145,18 @@ dependencies {
     runtimeOnly(log4jPlugins.output)
     alsoShade(log4jPlugins.output)
 
-    implementation("com.velocitypowered:velocity-native:4.1.0") {
+    implementation("com.velocitypowered:velocity-native:4.3.2-20261103.192818-3") { // Leaf
         isTransitive = false
     }
-    implementation("io.netty:netty-codec-haproxy:4.2.16.Final") // Add support for proxy protocol
+    implementation("io.netty:netty-codec-haproxy:4.2.17.Final") // Add support for proxy protocol
     implementation("org.apache.logging.log4j:log4j-iostreams:2.26.0")
-    implementation("org.ow2.asm:asm-commons:9.9.1")
+    implementation("org.ow2.asm:asm-commons:9.10.1")
     implementation("org.spongepowered:configurate-yaml:4.2.0")
+
+    // Purpur libraries
+    implementation("org.mozilla:rhino-runtime:1.7.15.1")
+    implementation("org.mozilla:rhino-engine:1.7.15.1")
+    implementation("dev.omega24:upnp4j:1.0")
 
     // Deps that were previously in the API but have now been moved here for backwards compat, eventually to be removed
     runtimeOnly("commons-lang:commons-lang:2.6")
@@ -161,12 +174,14 @@ dependencies {
     testImplementation("org.hamcrest:hamcrest:2.2")
     testImplementation("org.mockito:mockito-core:5.22.0")
     mockitoAgent("org.mockito:mockito-core:5.22.0") { isTransitive = false } // Configure mockito agent that is needed in newer java versions
-    testImplementation("org.ow2.asm:asm-tree:9.9.1")
+    testImplementation("org.ow2.asm:asm-tree:9.10.1")
     testImplementation("org.junit-pioneer:junit-pioneer:2.3.0") // CartesianTest
 
     // Spark
-    implementation("me.lucko:spark-api:0.1-20240720.200737-2")
-    implementation("me.lucko:spark-paper:1.10.191")
+    implementation("me.lucko:spark-api:0.1-dev-284ead8-20260826.125727-1") // Leaf - Better spark integration
+    implementation("me.lucko:spark-paper:1.10-dev-284ead8-20260826.125812-1") // Leaf - Better spark integration
+
+    implementation("io.netty:netty-all:4.2.17.Final") // Leaf - io_uring support
 }
 
 tasks.jar {
@@ -295,7 +310,7 @@ fun TaskContainer.registerRunTask(
         @Suppress("UnstableApiUsage")
         vendor.set(JvmVendorSpec.JETBRAINS)
     })
-    jvmArgs("-XX:+AllowEnhancedClassRedefinition", "--enable-native-access=ALL-UNNAMED")
+    jvmArgs("-XX:+AllowEnhancedClassRedefinition", "--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector")
 
     if (rootProject.childProjects["test-plugin"] != null) {
         val testPluginJar = rootProject.project(":test-plugin").tasks.jar.flatMap { it.archiveFile }
@@ -378,7 +393,7 @@ tasks.register<JavaExec>("runGameTests") {
     val base = layout.buildDirectory.dir("gametest")
     val runDir = base.map { it.dir("run") }
     workingDir = runDir.get().asFile
-    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Xms2G", "-Xmx2G")
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "--add-modules=jdk.incubator.vector", "-Xms2G", "-Xmx2G")
     systemProperty("com.mojang.eula.agree", true)
     systemProperty("joml.nounsafe", true)
     systemProperty("io.papermc.paper.suppress.sout.nags", true)

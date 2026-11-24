@@ -56,12 +56,13 @@ dependencies {
     // api dependencies are listed transitively to API consumers
     api("com.google.guava:guava:33.6.0-jre")
     api("com.google.code.gson:gson:2.14.0")
-    api("org.yaml:snakeyaml:2.2")
+    api("org.yaml:snakeyaml:2.6")
     api("org.joml:joml:1.10.9")
     api("it.unimi.dsi:fastutil:8.5.18")
     api("org.apache.logging.log4j:log4j-api:$log4jVersion")
     api("org.slf4j:slf4j-api:$slf4jVersion")
     api("com.mojang:brigadier:1.3.11")
+    api("io.sentry:sentry:8.43.0") // Pufferfish - Sentry
 
     // Deprecate bungeecord-chat in favor of adventure
     api("net.md-5:bungeecord-chat:$bungeeCordChatVersion") {
@@ -77,9 +78,9 @@ dependencies {
     apiAndDocs("net.kyori:adventure-text-serializer-plain")
     apiAndDocs("net.kyori:adventure-text-logger-slf4j")
 
-    api("org.apache.maven:maven-resolver-provider:3.9.6") // make API dependency for Paper Plugins
-    implementation("org.apache.maven.resolver:maven-resolver-connector-basic:1.9.18")
-    implementation("org.apache.maven.resolver:maven-resolver-transport-http:1.9.18")
+    api("org.apache.maven:maven-resolver-provider:3.9.16") // make API dependency for Paper Plugins
+    implementation("org.apache.maven.resolver:maven-resolver-connector-basic:1.9.27")
+    implementation("org.apache.maven.resolver:maven-resolver-transport-http:1.9.27")
 
     // Annotations - Slowly migrate to jspecify
     val annotations = "org.jetbrains:annotations:$annotationsVersion"
@@ -95,6 +96,7 @@ dependencies {
 
     // Test dependencies
     testImplementation("org.apache.commons:commons-lang3:3.20.0")
+    compileOnly("org.apache.commons:commons-lang3:3.20.0") // maven-resolver-provider 3.9.8+ no longer brings it, and the Bukkit API still uses it
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
     testImplementation("org.hamcrest:hamcrest:2.2")
     testImplementation("org.mockito:mockito-core:5.22.0")
@@ -193,12 +195,13 @@ val services = objects.newInstance<Services>()
 
 tasks.withType<Javadoc>().configureEach {
     val options = options as StandardJavadocDocletOptions
+    options.addStringOption("-add-modules", "jdk.incubator.vector") // Pufferfish - SIMD support
     options.overview = "src/main/javadoc/overview.html"
     options.use()
     options.isDocFilesSubDirs = true
     options.links(
         "https://guava.dev/releases/33.6.0-jre/api/docs/",
-        "https://www.javadocs.dev/org.yaml/snakeyaml/2.2/",
+        "https://www.javadocs.dev/org.yaml/snakeyaml/2.6/",
         "https://www.javadocs.dev/org.jetbrains/annotations/$annotationsVersion/",
         "https://www.javadocs.dev/org.joml/joml/1.10.9/",
         "https://www.javadocs.dev/com.google.code.gson/gson/2.14.0",
@@ -206,7 +209,7 @@ tasks.withType<Javadoc>().configureEach {
         "https://jd.papermc.io/adventure/$adventureVersion/",
         "https://www.javadocs.dev/org.slf4j/slf4j-api/$slf4jVersion/",
         "https://logging.apache.org/log4j/2.x/javadoc/log4j-api/",
-        "https://www.javadocs.dev/org.apache.maven.resolver/maven-resolver-api/1.7.3",
+        "https://www.javadocs.dev/org.apache.maven.resolver/maven-resolver-api/1.9.27",
     )
     options.tags(projectCustomJavadocTags.map { it.toOptionString() })
 

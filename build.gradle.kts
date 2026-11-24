@@ -31,6 +31,7 @@ subprojects {
         options.release = 25
         options.isFork = true
         options.compilerArgs.addAll(listOf("-Xlint:-deprecation", "-Xlint:-removal"))
+        options.compilerArgs.add("--add-modules=jdk.incubator.vector") // Pufferfish - SIMD support
     }
     tasks.withType<Javadoc>().configureEach {
         options.encoding = Charsets.UTF_8.name()
