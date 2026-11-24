@@ -97,7 +97,14 @@ final class SwiftSortTests {
                             @SuppressWarnings("unchecked") final List<Entity> slow = new ArrayList<>((List<Entity>) list);
                             @SuppressWarnings("unchecked") final List<Entity> fast = new ArrayList<>((List<Entity>) list);
                             slow.sort(Comparator.comparingDouble(body::distanceToSqr));
-                            SwiftSort.byDistance(fast, body);
+                            // FastPaper: both the packed single-array sort and the pair sort
+                            final boolean packedWas = SwiftSort.PACKED;
+                            SwiftSort.PACKED = (layout & 1) == 0;
+                            try {
+                                SwiftSort.byDistance(fast, body);
+                            } finally {
+                                SwiftSort.PACKED = packedWas;
+                            }
                             sorts++;
                             for (int i = 1; i < slow.size(); i++) {
                                 if (body.distanceToSqr(slow.get(i)) == body.distanceToSqr(slow.get(i - 1))) {

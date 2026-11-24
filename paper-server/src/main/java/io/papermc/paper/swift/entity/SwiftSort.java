@@ -28,7 +28,58 @@ public final class SwiftSort {
     /** Not final so tests can compare both paths inside one server. */
     public static volatile boolean enabled = Boolean.parseBoolean(System.getProperty("swift.sensorSort", "true"));
 
+    /**
+     * FastPaper - sort one packed array instead of two parallel ones. Each element holds the distance bits with
+     * the low {@link #INDEX_BITS} bits replaced by its list position, so a plain {@code long[]} sort orders by
+     * (truncated distance, position). Elements whose truncated distances are equal are then put in exact
+     * (distance, position) order by an insertion pass over each such run; the full distances are still in
+     * {@code keys}. The result is the same order as the pair sort. Disable with {@code -Dswift.sensorSortPacked=false}.
+     */
+    public static boolean PACKED = Boolean.parseBoolean(System.getProperty("swift.sensorSortPacked", "true")); // not final: tests compare both paths
+    static final int INDEX_BITS = 12;
+    static final long INDEX_MASK = (1L << INDEX_BITS) - 1;
+    /** Lists longer than this have positions that do not fit in the index bits and use the pair sort. */
+    public static final int PACKED_MAX = 1 << INDEX_BITS;
+
     private SwiftSort() {
+    }
+
+    /**
+     * Returns the positions of {@code keys} (non-negative raw double bits) in ascending (key, position) order,
+     * each in the low {@link #INDEX_BITS} bits of an element. {@code keys.length} must be at most {@link #PACKED_MAX}.
+     */
+    static long[] packedOrder(final long[] keys) {
+        final int size = keys.length;
+        final long[] packed = new long[size];
+        for (int i = 0; i < size; i++) {
+            packed[i] = (keys[i] & ~INDEX_MASK) | i;
+        }
+        java.util.Arrays.sort(packed);
+        int runStart = 0;
+        for (int i = 1; i <= size; i++) {
+            if (i == size || (packed[i] & ~INDEX_MASK) != (packed[runStart] & ~INDEX_MASK)) {
+                if (i - runStart > 1) {
+                    fixRun(packed, keys, runStart, i);
+                }
+                runStart = i;
+            }
+        }
+        return packed;
+    }
+
+    /** Insertion sort of {@code packed[from, to)} by (full key, position); the run is already in position order. */
+    private static void fixRun(final long[] packed, final long[] keys, final int from, final int to) {
+        for (int i = from + 1; i < to; i++) {
+            final long value = packed[i];
+            final long key = keys[(int) (value & INDEX_MASK)];
+            int j = i - 1;
+            // positions within the run ascend, so an equal key never moves: ties keep position order
+            while (j >= from && keys[(int) (packed[j] & INDEX_MASK)] > key) {
+                packed[j + 1] = packed[j];
+                j--;
+            }
+            packed[j + 1] = value;
+        }
     }
 
     /** {@code list.sort(Comparator.comparingDouble(body::distanceToSqr))}, same order. */
@@ -45,16 +96,26 @@ public final class SwiftSort {
             expected = null;
         }
         final long[] keys = new long[size];
-        final long[] index = new long[size];
         final Object[] copy = list.toArray();
         for (int i = 0; i < size; i++) {
             keys[i] = Double.doubleToRawLongBits(body.distanceToSqr((Entity) copy[i]));
-            index[i] = i;
         }
-        LongArrays.quickSort(keys, index);
-        for (int i = 0; i < size; i++) {
-            @SuppressWarnings("unchecked") final E e = (E) copy[(int) index[i]];
-            list.set(i, e);
+        if (PACKED && size <= PACKED_MAX) {
+            final long[] packed = packedOrder(keys);
+            for (int i = 0; i < size; i++) {
+                @SuppressWarnings("unchecked") final E e = (E) copy[(int) (packed[i] & INDEX_MASK)];
+                list.set(i, e);
+            }
+        } else {
+            final long[] index = new long[size];
+            for (int i = 0; i < size; i++) {
+                index[i] = i;
+            }
+            LongArrays.quickSort(keys, index);
+            for (int i = 0; i < size; i++) {
+                @SuppressWarnings("unchecked") final E e = (E) copy[(int) index[i]];
+                list.set(i, e);
+            }
         }
         if (expected != null) {
             SwiftVerify.checked();
