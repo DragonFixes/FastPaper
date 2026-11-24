@@ -34,6 +34,8 @@ public final class PaperCommands {
         registerInternalCommand(PaperMSPTCommand.create(), "paper", PaperMSPTCommand.DESCRIPTION, List.of(), Set.of());
         registerInternalCommand(PaperVersionCommand.create(), "bukkit", PaperVersionCommand.DESCRIPTION, List.of("ver", "about"), Set.of());
         registerInternalCommand(PaperPluginsCommand.create(), "bukkit", PaperPluginsCommand.DESCRIPTION, List.of("pl"), Set.of());
+        registerInternalCommand(io.papermc.paper.fastpaper.bar.StatusBars.tpsbarCommand(), "fastpaper", io.papermc.paper.fastpaper.bar.StatusBars.TPSBAR_DESCRIPTION, List.of(), Set.of());
+        registerInternalCommand(io.papermc.paper.fastpaper.bar.StatusBars.rambarCommand(), "fastpaper", io.papermc.paper.fastpaper.bar.StatusBars.RAMBAR_DESCRIPTION, List.of(), Set.of());
     }
 
     private static void registerInternalCommand(final LiteralCommandNode<CommandSourceStack> node, final String namespace, final String description, final List<String> aliases, final Set<CommandRegistrationFlag> flags) {

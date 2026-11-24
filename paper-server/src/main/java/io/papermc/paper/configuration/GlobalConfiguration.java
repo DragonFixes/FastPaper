@@ -195,6 +195,46 @@ public class GlobalConfiguration extends ConfigurationPart {
         public boolean serverSideDimensionSuggestions = true;
         @Comment("Allow mounting entities to a player in the Vanilla '/ride' command.")
         public boolean rideCommandAllowPlayerAsVehicle = false;
+        @Comment("The /tpsbar boss bar. Text uses MiniMessage. Title placeholders: <tps>, <mspt>, <ping>. Text colors wrap the value as <text>.")
+        public Tpsbar tpsbar;
+        @Comment("The /rambar boss bar. Text uses MiniMessage. Title placeholders: <used>, <allocated>, <xmx>, <xms>, <percent>. Text colors wrap the value as <text>.")
+        public Rambar rambar;
+
+        public class Tpsbar extends ConfigurationPart {
+            public String title = "<gray>TPS<yellow>:</yellow> <tps> MSPT<yellow>:</yellow> <mspt> Ping<yellow>:</yellow> <ping>ms";
+            @Comment("Toggle message. Placeholders: <onoff>, <target>.")
+            public String commandOutput = "<green>Tpsbar toggled <onoff> for <target>";
+            public net.kyori.adventure.bossbar.BossBar.Overlay overlay = net.kyori.adventure.bossbar.BossBar.Overlay.NOTCHED_20;
+            @Comment("What fills the bar: TPS, MSPT or PING.")
+            public io.papermc.paper.fastpaper.bar.TpsBarTask.FillMode fillMode = io.papermc.paper.fastpaper.bar.TpsBarTask.FillMode.MSPT;
+            public BarColors progressColor;
+            public TextColors textColor;
+            @Comment("Ticks between bar updates.")
+            public int tickInterval = 20;
+        }
+
+        public class Rambar extends ConfigurationPart {
+            public String title = "<gray>Ram<yellow>:</yellow> <used>/<xmx> (<percent>)";
+            @Comment("Toggle message. Placeholders: <onoff>, <target>.")
+            public String commandOutput = "<green>Rambar toggled <onoff> for <target>";
+            public net.kyori.adventure.bossbar.BossBar.Overlay overlay = net.kyori.adventure.bossbar.BossBar.Overlay.NOTCHED_20;
+            public BarColors progressColor;
+            public TextColors textColor;
+            @Comment("Ticks between bar updates.")
+            public int tickInterval = 20;
+        }
+
+        public class BarColors extends ConfigurationPart {
+            public net.kyori.adventure.bossbar.BossBar.Color good = net.kyori.adventure.bossbar.BossBar.Color.GREEN;
+            public net.kyori.adventure.bossbar.BossBar.Color medium = net.kyori.adventure.bossbar.BossBar.Color.YELLOW;
+            public net.kyori.adventure.bossbar.BossBar.Color low = net.kyori.adventure.bossbar.BossBar.Color.RED;
+        }
+
+        public class TextColors extends ConfigurationPart {
+            public String good = "<gradient:#55ff55:#00aa00><text></gradient>";
+            public String medium = "<gradient:#ffff55:#ffaa00><text></gradient>";
+            public String low = "<gradient:#ff5555:#aa0000><text></gradient>";
+        }
     }
 
     public Time time;

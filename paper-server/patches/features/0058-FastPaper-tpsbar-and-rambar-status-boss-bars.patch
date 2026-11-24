@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Mon, 23 Nov 2026 19:06:58 -0500
+Subject: [PATCH] FastPaper: tpsbar and rambar status boss bars
+
+
+diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
+index a8c330e21a715711ed21dd9084deea5254121b44..38b35227b9e32ef11471d7edbdfeeb5a4a093f49 100644
+--- a/net/minecraft/server/MinecraftServer.java
++++ b/net/minecraft/server/MinecraftServer.java
+@@ -1751,6 +1751,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         this.server.getScheduler().mainThreadHeartbeat(); // CraftBukkit
+         // Paper start - optimise Folia entity scheduler
+         ((io.papermc.paper.threadedregions.scheduler.FoliaGlobalRegionScheduler)org.bukkit.Bukkit.getGlobalRegionScheduler()).tick();
++        io.papermc.paper.fastpaper.bar.StatusBars.tick(); // FastPaper - tpsbar and rambar
+         for (io.papermc.paper.threadedregions.EntityScheduler scheduler : this.entitySchedulerTickList.getAllSchedulers()) {
+             if (scheduler.isRetired()) {
+                 continue;
+diff --git a/net/minecraft/server/players/PlayerList.java b/net/minecraft/server/players/PlayerList.java
+index 62f57eb254321902692550d0a86c24292ef9e87d..b416f70f353ef6a05ab81741a701d220411bd363 100644
+--- a/net/minecraft/server/players/PlayerList.java
++++ b/net/minecraft/server/players/PlayerList.java
+@@ -247,6 +247,7 @@ public abstract class PlayerList {
+         if (!player.connection.isAcceptingMessages()) {
+             return;
+         }
++        io.papermc.paper.fastpaper.bar.StatusBars.onJoin(bukkitPlayer); // FastPaper - tpsbar and rambar
+ 
+         final net.kyori.adventure.text.Component jm = playerJoinEvent.joinMessage();
+ 
+@@ -446,6 +447,7 @@ public abstract class PlayerList {
+ 
+         org.bukkit.event.player.PlayerQuitEvent playerQuitEvent = new org.bukkit.event.player.PlayerQuitEvent(player.getBukkitEntity(), leaveMessage, player.quitReason); // Paper - Adventure & Add API for quit reason
+         this.cserver.getPluginManager().callEvent(playerQuitEvent);
++        io.papermc.paper.fastpaper.bar.StatusBars.onQuit(player.getBukkitEntity()); // FastPaper - tpsbar and rambar
+         player.getBukkitEntity().disconnect();
+ 
+         // CraftBukkit end
