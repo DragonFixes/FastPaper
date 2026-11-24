@@ -2859,7 +2859,7 @@ index c8185e32f7e4b2b4df959a571a7c4c80f5983986..cbb54e19819b04b6ee250b386d93876f
  
      public static <E extends LivingEntity> ActivityData<E> create(
 diff --git a/net/minecraft/world/entity/ai/Brain.java b/net/minecraft/world/entity/ai/Brain.java
-index ca9d18c15ea530eb1b6350cd27bc63314bfb3b7b..f451b695272f83cf1fd7fa189c986a0455828f76 100644
+index eb3710fc2c67bdec513c5a8f068fc6eb1e66d111..d7668761d12e850559a371ee57c899a90137e3e5 100644
 --- a/net/minecraft/world/entity/ai/Brain.java
 +++ b/net/minecraft/world/entity/ai/Brain.java
 @@ -37,14 +37,21 @@ import org.jspecify.annotations.Nullable;
@@ -2954,70 +2954,15 @@ index ca9d18c15ea530eb1b6350cd27bc63314bfb3b7b..f451b695272f83cf1fd7fa189c986a04
      }
  
      // Swift start - flat behaviour loop
-@@ -443,6 +474,7 @@ public class Brain<E extends LivingEntity> {
-         final int version;
-         final Activity[] groupActivity;
-         final BehaviorControl<? super E>[][] groupBehaviors;
-+        final Set<BehaviorControl<? super E>>[] groupSets; // FastPaper - Leaf brain collections: each group's live set, for its running count
-         final BehaviorControl<? super E>[] all;
- 
-         @SuppressWarnings("unchecked")
-@@ -450,17 +482,20 @@ public class Brain<E extends LivingEntity> {
-             this.version = version;
-             final List<Activity> activities = new java.util.ArrayList<>();
-             final List<BehaviorControl<? super E>[]> groups = new java.util.ArrayList<>();
-+            final List<Set<BehaviorControl<? super E>>> sets = new java.util.ArrayList<>(); // FastPaper - Leaf brain collections
-             final List<BehaviorControl<? super E>> all = new java.util.ArrayList<>();
-             for (final Map<Activity, Set<BehaviorControl<? super E>>> byActivity : byPriority.values()) {
-                 for (final Map.Entry<Activity, Set<BehaviorControl<? super E>>> entry : byActivity.entrySet()) {
-                     activities.add(entry.getKey());
-                     final BehaviorControl<? super E>[] group = entry.getValue().toArray(new BehaviorControl[0]);
-                     groups.add(group);
-+                    sets.add(entry.getValue()); // FastPaper - Leaf brain collections
-                     java.util.Collections.addAll(all, group);
-                 }
-             }
-             this.groupActivity = activities.toArray(new Activity[0]);
-             this.groupBehaviors = groups.toArray(new BehaviorControl[0][]);
-+            this.groupSets = sets.toArray(new Set[0]); // FastPaper - Leaf brain collections
-             this.all = all.toArray(new BehaviorControl[0]);
-         }
-     }
-@@ -474,6 +509,15 @@ public class Brain<E extends LivingEntity> {
+@@ -474,6 +505,7 @@ public class Brain<E extends LivingEntity> {
          return flat;
      }
  
-+    // FastPaper start - Leaf brain collections: tickEachRunningBehavior skips sets whose running count is zero,
-+    // so every start has to be counted, including the ones the flat loop makes
-+    private static void swift$countStarted(final Set<?> behaviors) {
-+        if (behaviors instanceof org.dreeam.leaf.util.map.BehaviorControlArraySet<?> set) {
-+            set.inc();
-+        }
-+    }
-+    // FastPaper end - Leaf brain collections
 +
      /** The fast loop's activity gate (one place, so shadow verification checks the real thing). */
      private boolean swift$groupActive(final Activity activity) {
          return this.activeActivities.contains(activity);
-@@ -510,7 +554,7 @@ public class Brain<E extends LivingEntity> {
-                     }
-                     i++;
-                     if (vanillaActive && behavior.getStatus() == Behavior.Status.STOPPED) {
--                        behavior.tryStart(level, body, time);
-+                        if (behavior.tryStart(level, body, time)) swift$countStarted(entry.getValue()); // FastPaper - Leaf brain collections
-                     }
-                 }
-                 if (ok && i != flat.groupBehaviors[g].length) {
-@@ -543,7 +587,7 @@ public class Brain<E extends LivingEntity> {
-                 if (this.swift$groupActive(activities[g])) {
-                     for (final BehaviorControl<? super E> behavior : groups[g]) {
-                         if (behavior.getStatus() == Behavior.Status.STOPPED) {
--                            behavior.tryStart(level, body, time);
-+                            if (behavior.tryStart(level, body, time)) swift$countStarted(flat.groupSets[g]); // FastPaper - Leaf brain collections
-                         }
-                     }
-                 }
-@@ -552,26 +596,79 @@ public class Brain<E extends LivingEntity> {
+@@ -554,18 +586,47 @@ public class Brain<E extends LivingEntity> {
          }
          // Swift end - flat behaviour loop
  
@@ -3073,40 +3018,6 @@ index ca9d18c15ea530eb1b6350cd27bc63314bfb3b7b..f451b695272f83cf1fd7fa189c986a04
      }
  
      private void tickEachRunningBehavior(final ServerLevel level, final E body) {
-         long timestamp = level.getGameTime();
- 
--        for (BehaviorControl<? super E> behavior : this.getRunningBehaviors()) {
--            behavior.tickOrStop(level, body, timestamp);
-+        // Leaf start - Replace brain maps with optimized collection
-+        var byPriorityArray = this.availableBehaviorsByPriorityArray;
-+        if (byPriorityArray.length != this.availableBehaviorsByPriority.size()) {
-+            byPriorityArray = this.availableBehaviorsByPriority.values().toArray(EMPTY_MAP_ARRAY);
-+            this.availableBehaviorsByPriorityArray = byPriorityArray;
-+        }
-+        for (Map<Activity, Set<BehaviorControl<? super E>>> byActivity : byPriorityArray) {
-+            var behaviorsByActivity = (org.dreeam.leaf.util.map.ActivityArrayMap<Set<BehaviorControl<? super E>>>) byActivity;
-+            final var behaviorSets = behaviorsByActivity.v;
-+            for (int i = 0, size = behaviorsByActivity.size(); i < size; i++) {
-+                var behaviorSet = (org.dreeam.leaf.util.map.BehaviorControlArraySet<? super E>) behaviorSets[i];
-+                if (!behaviorSet.running()) {
-+                    continue;
-+                }
-+                BehaviorControl<? super E>[] behaviors = behaviorSet.raw();
-+                for (int index = 0, count = behaviorSet.size(); index < count; index++) {
-+                    BehaviorControl<? super E> behavior = behaviors[index];
-+                    if (behavior.getStatus() == Behavior.Status.RUNNING) {
-+                        behavior.tickOrStop(level, body, timestamp);
-+                        if (behavior.getStatus() == Behavior.Status.STOPPED) {
-+                            behaviorSet.dec();
-+                        }
-+                    }
-+                }
-+            }
-         }
-+        // Leaf end - Replace brain maps with optimized collection
-     }
- 
-     private boolean activityRequirementsAreMet(final Activity activity) {
 diff --git a/net/minecraft/world/entity/ai/attributes/Attribute.java b/net/minecraft/world/entity/ai/attributes/Attribute.java
 index ad3dc7f69eb6e5a167118c4fe16c2fe4083522dd..c2947dd00a7ddd0622eece451bacff477bd81772 100644
 --- a/net/minecraft/world/entity/ai/attributes/Attribute.java
@@ -3368,10 +3279,10 @@ index c50d6ac77cae556aaa7ce8f3f1dc3a706ccd9d31..42c4ec0446ef5f78fba953fcaebae911
  
      public static boolean isWithinAttackRange(final Mob body, final LivingEntity target, final int projectileAttackRangeMargin) {
 diff --git a/net/minecraft/world/entity/ai/behavior/GateBehavior.java b/net/minecraft/world/entity/ai/behavior/GateBehavior.java
-index 3adfb334068d3722329f91011c41d5e59b1956c9..9975c19eb1bdafc8bbfb304ad244aa1fecc8ce3c 100644
+index b706b91b7b6a27a8c09feea0993b474d051d876c..f49f969072ae9a4dd0e5e8c3ae3c4b9485962049 100644
 --- a/net/minecraft/world/entity/ai/behavior/GateBehavior.java
 +++ b/net/minecraft/world/entity/ai/behavior/GateBehavior.java
-@@ -85,7 +85,16 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
+@@ -101,7 +101,16 @@ public class GateBehavior<E extends LivingEntity> implements BehaviorControl<E>
              }
          }
          // Paper end - Perf: Remove streams from hot code

@@ -4617,7 +4617,7 @@ index 2f525eaeeffd6b61690abd2c5c0020116dcac051..f7d3f32ec53d4b80c27f94f6e14f11d4
                  return false;
              }
 diff --git a/net/minecraft/world/entity/ai/Brain.java b/net/minecraft/world/entity/ai/Brain.java
-index f451b695272f83cf1fd7fa189c986a0455828f76..ccd21f7ecffe762bb38a210c09e58b346277570d 100644
+index d7668761d12e850559a371ee57c899a90137e3e5..5859d774a68baa56c19ad8a16381fa24c3fdf876 100644
 --- a/net/minecraft/world/entity/ai/Brain.java
 +++ b/net/minecraft/world/entity/ai/Brain.java
 @@ -35,8 +35,9 @@ import net.minecraft.world.entity.schedule.Activity;
@@ -4707,50 +4707,6 @@ index f451b695272f83cf1fd7fa189c986a0455828f76..ccd21f7ecffe762bb38a210c09e58b34
  
      public void stopAll(final ServerLevel level, final E body) {
          long timestamp = body.level().getGameTime();
-diff --git a/net/minecraft/world/entity/ai/behavior/Behavior.java b/net/minecraft/world/entity/ai/behavior/Behavior.java
-index f78464bcbf82fdc7cbf43c2ee586586b2cdfa552..3fe7a403ae54525de189414908c2d6331a1c9f27 100644
---- a/net/minecraft/world/entity/ai/behavior/Behavior.java
-+++ b/net/minecraft/world/entity/ai/behavior/Behavior.java
-@@ -11,6 +11,10 @@ import net.minecraft.world.entity.ai.memory.MemoryStatus;
- public abstract class Behavior<E extends LivingEntity> implements BehaviorControl<E> {
-     public static final int DEFAULT_DURATION = 60;
-     protected final Map<MemoryModuleType<?>, MemoryStatus> entryCondition;
-+    // Leaf start - Lithium - Reduce Brain memories lookup
-+    private long cachedMemoryModCount = -1L;
-+    private boolean cachedHasRequiredMemoryState;
-+    // Leaf end - Lithium - Reduce Brain memories lookup
-     private Behavior.Status status = Behavior.Status.STOPPED;
-     private long endTimestamp;
-     private final int minDuration;
-@@ -110,15 +114,25 @@ public abstract class Behavior<E extends LivingEntity> implements BehaviorContro
-     }
- 
-     protected boolean hasRequiredMemories(final E body) {
-+        // Leaf start - Lithium - Reduce Brain memories lookup
-+        net.minecraft.world.entity.ai.Brain<?> brain = body.getBrain();
-+        long modCount = brain.lithium$getMemoryValueModCount();
-+        if (this.cachedMemoryModCount == modCount) {
-+            return this.cachedHasRequiredMemoryState;
-+        }
-+        this.cachedMemoryModCount = modCount;
-+        // Leaf end - Lithium - Reduce Brain memories lookup
-         for (Entry<MemoryModuleType<?>, MemoryStatus> entry : this.entryCondition.entrySet()) {
-             MemoryModuleType<?> memoryType = entry.getKey();
-             MemoryStatus requiredStatus = entry.getValue();
--            if (!body.getBrain().checkMemory(memoryType, requiredStatus)) {
--                return false;
-+            // Leaf start - Lithium - Reduce Brain memories lookup
-+            if (!brain.checkMemory(memoryType, requiredStatus)) {
-+                return this.cachedHasRequiredMemoryState = false;
-+                // Leaf end - Lithium - Reduce Brain memories lookup
-             }
-         }
- 
--        return true;
-+        return this.cachedHasRequiredMemoryState = true; // Leaf - Lithium - Reduce Brain memories lookup
-     }
- 
-     public enum Status {
 diff --git a/net/minecraft/world/entity/ai/behavior/InsideBrownianWalk.java b/net/minecraft/world/entity/ai/behavior/InsideBrownianWalk.java
 index b57a48842e31f678de4dcef689a4c9dcf9dd66af..04c5afb2805ec1b5b382432cafccbc6d45be6fb1 100644
 --- a/net/minecraft/world/entity/ai/behavior/InsideBrownianWalk.java
@@ -4842,24 +4798,6 @@ index 5bd7473b0db1a87f905c01c19ddf99e3a447bcfa..b9bb5dc8fc35ec41693311b056139eaf
                              if (path != null && path.canReach()) {
                                  BlockPos targetPos = path.getTarget();
                                  Optional<Holder<PoiType>> type = poiManager.getType(targetPos);
-diff --git a/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java b/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java
-index 71b8f9a7d4fe97f56fe1fc03b48e4dcd455ccd1e..ff218cf753990d7d9816d2230ec6d40fa77f0694 100644
---- a/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java
-+++ b/net/minecraft/world/entity/ai/behavior/SetLookAndInteract.java
-@@ -19,8 +19,11 @@ public class SetLookAndInteract {
-                 .apply(
-                     i,
-                     (lookTarget, interactionTarget, nearestEntities) -> (level, body, timestamp) -> {
--                        Optional<LivingEntity> closest = i.<NearestVisibleLivingEntities>get(nearestEntities)
--                            .findClosest(e -> e.distanceToSqr(body) <= interactionRangeSqr && e.is(type));
-+                        // Leaf start - Optimize SetLookAndInteract and NearestVisibleLivingEntities
-+                        Optional<LivingEntity> closest = i.get(nearestEntities)
-+                            // Check entity type first as it's likely cheaper than distance calculation
-+                            .findClosest(e -> e.is(type) && e.distanceToSqr(body) <= interactionRangeSqr);
-+                        // Leaf end - Optimize SetLookAndInteract and NearestVisibleLivingEntities
-                         if (closest.isEmpty()) {
-                             return false;
-                         }
 diff --git a/net/minecraft/world/entity/ai/behavior/TryFindLandNearLiquid.java b/net/minecraft/world/entity/ai/behavior/TryFindLandNearLiquid.java
 index d873c8725cc86a3b3270c140729c23e737b53638..844cab0eab41e3bb4883fd8aa94684fbc7fa4f8c 100644
 --- a/net/minecraft/world/entity/ai/behavior/TryFindLandNearLiquid.java
