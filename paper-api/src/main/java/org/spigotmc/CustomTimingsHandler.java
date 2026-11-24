@@ -23,49 +23,15 @@
  */
 package org.spigotmc;
 
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.AuthorNagException;
-import co.aikar.timings.Timing;
-import co.aikar.timings.Timings;
-import co.aikar.timings.TimingsManager;
-
-import java.lang.reflect.Method;
-import java.util.logging.Level;
-
+// Leaf start - Remove Timings
 /**
- * This is here for legacy purposes incase any plugin used it.
- * <p>
- * If you use this, migrate ASAP as this will be removed in the future!
- *
- * @see co.aikar.timings.Timings#of
  * @deprecated Timings has been removed
+ * Keep this class for plugin compatibility (detect usage)
  */
 @Deprecated(forRemoval = true)
 public final class CustomTimingsHandler {
-    private final Timing handler;
-
-    public CustomTimingsHandler(final String name) {
-        Timing timing;
-
-        new AuthorNagException("Deprecated use of CustomTimingsHandler. Timings has been removed.").printStackTrace();
-        try {
-            final Method ofSafe = TimingsManager.class.getDeclaredMethod("getHandler", String.class, String.class, Timing.class);
-            ofSafe.setAccessible(true);
-            timing = (Timing) ofSafe.invoke(null, "Minecraft", "(Deprecated API) " + name, null);
-        } catch (final Exception e) {
-            e.printStackTrace();
-            Bukkit.getLogger().log(Level.SEVERE, "This handler could not be registered");
-            timing = Timings.NULL_HANDLER;
-        }
-        this.handler = timing;
-    }
-
-    public void startTiming() {
-        this.handler.startTiming();
-    }
-
-    public void stopTiming() {
-        this.handler.stopTiming();
-    }
-
+    public CustomTimingsHandler(final String name) {new org.bukkit.plugin.AuthorNagException("Deprecated use of CustomTimingsHandler. Timings has been removed.").printStackTrace();}
+    public void startTiming() {}
+    public void stopTiming() {}
+    // Leaf end - Remove Timings
 }

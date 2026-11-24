@@ -580,7 +580,7 @@ public enum Effect {
     public static final Effect PARTICLES_EGG_CRACK = EGG_CRACK;
     //</editor-fold>
 
-    private static final Map<Integer, Effect> BY_ID = new HashMap<>();
+    private static final it.unimi.dsi.fastutil.ints.Int2ReferenceMap<Effect> BY_ID = new it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
 
     private final int id;
     private final Type type;

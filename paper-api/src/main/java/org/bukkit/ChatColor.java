@@ -246,8 +246,10 @@ public enum ChatColor {
     private final char code;
     private final boolean isFormat;
     private final String toString;
-    private static final Map<Integer, ChatColor> BY_ID = Maps.newHashMap();
-    private static final Map<Character, ChatColor> BY_CHAR = Maps.newHashMap();
+    // Leaf start - Replace data maps with optimized collection
+    private static final it.unimi.dsi.fastutil.ints.Int2ReferenceMap<ChatColor> BY_ID = new it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap<>();
+    private static final it.unimi.dsi.fastutil.chars.Char2ReferenceMap<ChatColor> BY_CHAR = new it.unimi.dsi.fastutil.chars.Char2ReferenceOpenHashMap<>();
+    // Leaf end - Replace data maps with optimized collection
 
     private ChatColor(char code, int intCode) {
         this(code, intCode, false);
@@ -456,4 +458,77 @@ public enum ChatColor {
             BY_CHAR.put(color.code, color);
         }
     }
+
+    // Purpur start - ChatColor conveniences
+    /**
+     * Convert legacy string into a string ready to be parsed by MiniMessage
+     *
+     * @param str Legacy string
+     * @return MiniMessage ready string
+     */
+    @NotNull
+    public static String toMM(@NotNull String str) {
+        StringBuilder sb = new StringBuilder(str);
+        java.util.regex.Matcher m = STRIP_COLOR_PATTERN.matcher(sb);
+        while (m.find()) {
+            sb.replace(m.start(), m.end(), sb.substring(m.start(), m.end()).toLowerCase());
+        }
+        return sb.toString()
+                .replace("&0", "<black>")
+                .replace("&1", "<dark_blue>")
+                .replace("&2", "<dark_green>")
+                .replace("&3", "<dark_aqua>")
+                .replace("&4", "<dark_red>")
+                .replace("&5", "<dark_purple>")
+                .replace("&6", "<gold>")
+                .replace("&7", "<grey>")
+                .replace("&8", "<dark_grey>")
+                .replace("&9", "<blue>")
+                .replace("&a", "<green>")
+                .replace("&b", "<aqua>")
+                .replace("&c", "<red>")
+                .replace("&d", "<light_purple>")
+                .replace("&e", "<yellow>")
+                .replace("&f", "<white>")
+                .replace("&k", "<obf>")
+                .replace("&l", "<b>")
+                .replace("&m", "<st>")
+                .replace("&n", "<u>")
+                .replace("&o", "<i>")
+                .replace("&r", "<r>");
+    }
+
+    @NotNull
+    public static net.kyori.adventure.text.Component parseMM(@NotNull String string, @Nullable Object... args) {
+        return net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(String.format(string, args));
+    }
+
+    @Deprecated
+    public static final Pattern HEX_PATTERN = Pattern.compile("(#[A-Fa-f0-9]{6})");
+
+    @Deprecated
+    @Nullable
+    public static String replaceHex(@Nullable String str) {
+        if (str != null) {
+            java.util.regex.Matcher matcher = HEX_PATTERN.matcher(str);
+            while (matcher.find()) {
+                String group = matcher.group(1);
+                str = str.replace(group, net.md_5.bungee.api.ChatColor.of(group).toString());
+            }
+        }
+        return str;
+    }
+
+    @Deprecated
+    @Nullable
+    public static String color(@Nullable String str) {
+        return color(str, true);
+    }
+
+    @Deprecated
+    @Nullable
+    public static String color(@Nullable String str, boolean parseHex) {
+        return str != null ? net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', parseHex ? replaceHex(str) : str) : str;
+    }
+    // Purpur end - ChatColor conveniences
 }

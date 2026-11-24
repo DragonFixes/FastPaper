@@ -56,12 +56,24 @@ public class MavenLibraryResolver implements ClassPathLibrary {
      * <p>This repository is also used by the legacy {@link org.bukkit.plugin.java.LibraryLoader}.</p>
      */
     public static final String MAVEN_CENTRAL_DEFAULT_MIRROR = getDefaultMavenCentralMirror();
-    private static final List<String> MAVEN_CENTRAL_URLS = List.of(
+    // Leaf start - Configurable LibraryLoader maven repos
+    public static final @org.jspecify.annotations.Nullable RemoteRepository CUSTOM_MAVEN_CENTRAL_MIRROR_REPO = getCustomCentralMirrorRepo();
+    private static final String[] MAVEN_CENTRAL_URLS = new String[]{
         "https://repo1.maven.org/maven2",
         "http://repo1.maven.org/maven2",
         "https://repo.maven.apache.org/maven2",
         "http://repo.maven.apache.org/maven2"
-    );
+    };
+    // From https://storage-download.googleapis.com/maven-central/index.html
+    private static final String[] MAVEN_CENTRAL_GOOGLE_MIRROR_URLS = new String[]{
+        "https://maven-central.storage-download.googleapis.com/maven2",
+        "http://maven-central.storage-download.googleapis.com/maven2",
+        "https://maven-central-eu.storage-download.googleapis.com/maven2",
+        "http://maven-central-eu.storage-download.googleapis.com/maven2",
+        "https://maven-central-asia.storage-download.googleapis.com/maven2",
+        "http://maven-central-asia.storage-download.googleapis.com/maven2"
+    };
+    // Leaf end - Configurable LibraryLoader maven repos
     private static final Logger LOGGER = LoggerFactory.getLogger("MavenLibraryResolver");
 
     private final RepositorySystem repository;
@@ -117,12 +129,33 @@ public class MavenLibraryResolver implements ClassPathLibrary {
      *                         dependencies from
      */
     public void addRepository(final RemoteRepository remoteRepository) {
-        if (MAVEN_CENTRAL_URLS.stream().anyMatch(remoteRepository.getUrl()::startsWith)) {
+        // Leaf start - Configurable LibraryLoader maven repos
+        for (String url : MAVEN_CENTRAL_URLS) {
+            if (remoteRepository.getUrl().startsWith(url)) {
+                RemoteRepository mirrorRepo = CUSTOM_MAVEN_CENTRAL_MIRROR_REPO;
+                if (mirrorRepo != null) {
+                    this.repositories.add(mirrorRepo);
+                    return;
+                }
+                // Leaf end - Configurable LibraryLoader maven repos
             LOGGER.warn(
-                "Use of Maven Central as a CDN is against the Maven Central Terms of Service. Use MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR instead.",
+                "Use of Maven Central as a CDN is against the Maven Central Terms of Service. Use MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR instead. DO NOT report this to Paper or Leaf! Please contact plugin's support to adapt this change.", // Leaf - Better warning message for discouraging Maven Central as CDN
                 new RuntimeException("Plugin used Maven Central for library resolution (%s)".formatted(remoteRepository.toString()))
             );
+                // Leaf start - Configurable LibraryLoader maven repos
+            }
         }
+        // Match google api maven central mirror urls
+        for (String url : MAVEN_CENTRAL_GOOGLE_MIRROR_URLS) {
+            if (remoteRepository.getUrl().startsWith(url)) {
+                RemoteRepository mirrorRepo = CUSTOM_MAVEN_CENTRAL_MIRROR_REPO;
+                if (mirrorRepo != null) {
+                    this.repositories.add(mirrorRepo);
+                    return;
+                }
+            }
+        }
+        // Leaf end - Configurable LibraryLoader maven repos
         this.repositories.add(remoteRepository);
     }
 
@@ -159,4 +192,14 @@ public class MavenLibraryResolver implements ClassPathLibrary {
         }
         return central;
     }
+
+    // Leaf start - Configurable LibraryLoader maven repos
+    private static @org.jspecify.annotations.Nullable RemoteRepository getCustomCentralMirrorRepo() {
+        String mirrorAddr = System.getProperty("Leaf.library-download-repo");
+        if (mirrorAddr != null) {
+            return new RemoteRepository.Builder("central", "default", mirrorAddr).build();
+        }
+        return null;
+    }
+    // Leaf end - Configurable LibraryLoader maven repos
 }

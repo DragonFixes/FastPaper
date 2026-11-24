@@ -34,7 +34,7 @@ public enum GameMode implements net.kyori.adventure.translation.Translatable { /
     SPECTATOR(3);
 
     private final int value;
-    private static final Map<Integer, GameMode> BY_ID = Maps.newHashMap();
+    private static final it.unimi.dsi.fastutil.ints.Int2ReferenceMap<GameMode> BY_ID = new it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
     // Paper start - translation keys
     private final String translationKey;
 

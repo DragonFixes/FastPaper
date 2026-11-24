@@ -44,7 +44,7 @@ public enum CropState {
     RIPE(0x7);
 
     private final byte data;
-    private static final Map<Byte, CropState> BY_DATA = Maps.newHashMap();
+    private static final it.unimi.dsi.fastutil.bytes.Byte2ReferenceMap<CropState> BY_DATA = new it.unimi.dsi.fastutil.bytes.Byte2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
 
     private CropState(final int data) {
         this.data = (byte) data;

@@ -15,7 +15,7 @@ public enum SandstoneType {
     SMOOTH(0x2);
 
     private final byte data;
-    private static final Map<Byte, SandstoneType> BY_DATA = Maps.newHashMap();
+    private static final it.unimi.dsi.fastutil.bytes.Byte2ReferenceMap<SandstoneType> BY_DATA = new it.unimi.dsi.fastutil.bytes.Byte2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
 
     private SandstoneType(final int data) {
         this.data = (byte) data;

@@ -26,7 +26,7 @@ public class Note {
         private final boolean sharpable;
         private final byte id;
 
-        private static final Map<Byte, Note.Tone> BY_DATA = Maps.newHashMap();
+        private static final it.unimi.dsi.fastutil.bytes.Byte2ReferenceMap<Tone> BY_DATA = new it.unimi.dsi.fastutil.bytes.Byte2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
         /** The number of tones including sharped tones. */
         public static final byte TONES_COUNT = 12;
 

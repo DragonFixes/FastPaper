@@ -13,7 +13,7 @@ public enum CoalType {
     CHARCOAL(0x1);
 
     private final byte data;
-    private static final Map<Byte, CoalType> BY_DATA = Maps.newHashMap();
+    private static final it.unimi.dsi.fastutil.bytes.Byte2ReferenceMap<CoalType> BY_DATA = new it.unimi.dsi.fastutil.bytes.Byte2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
 
     private CoalType(final int data) {
         this.data = (byte) data;

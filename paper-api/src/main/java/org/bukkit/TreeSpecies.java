@@ -39,7 +39,7 @@ public enum TreeSpecies {
     ;
 
     private final byte data;
-    private static final Map<Byte, TreeSpecies> BY_DATA = Maps.newHashMap();
+    private static final it.unimi.dsi.fastutil.bytes.Byte2ReferenceMap<TreeSpecies> BY_DATA = new it.unimi.dsi.fastutil.bytes.Byte2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
 
     private TreeSpecies(final int data) {
         this.data = (byte) data;

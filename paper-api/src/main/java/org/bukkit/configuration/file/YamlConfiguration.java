@@ -62,6 +62,7 @@ public class YamlConfiguration extends FileConfiguration {
         yamlLoaderOptions.setMaxAliasesForCollections(Integer.MAX_VALUE); // SPIGOT-5881: Not ideal, but was default pre SnakeYAML 1.26
         yamlLoaderOptions.setCodePointLimit(Integer.MAX_VALUE); // SPIGOT-7161: Not ideal, but was default pre SnakeYAML 1.32
         yamlLoaderOptions.setNestingDepthLimit(100); // SPIGOT-7906: The default limit (50) can be easily reached with nested bundles
+        yamlLoaderOptions.setWarnOnDuplicateKeys(false); // Leaf - Disable yaml duplicate keys warning by default
 
         constructor = new YamlConstructor(yamlLoaderOptions);
         representer = new YamlRepresenter(yamlDumperOptions);

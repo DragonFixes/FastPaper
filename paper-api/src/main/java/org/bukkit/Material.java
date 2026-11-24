@@ -3242,11 +3242,50 @@ public enum Material implements Keyed, Translatable, net.kyori.adventure.transla
             filtered = filtered.substring((NamespacedKey.MINECRAFT + ":").length());
         }
 
-        filtered = filtered.toUpperCase(Locale.ROOT);
-
-        filtered = filtered.replaceAll("\\s+", "_").replaceAll("\\W", "");
+        filtered = matchMaterialStrip(filtered); // Leaf - Avoid regex in Material#matchMaterial
         return getMaterial(filtered, legacyName);
     }
+
+    // Leaf start - Avoid regex in Material#matchMaterial
+    private static String matchMaterialStrip(final String filtered) {
+        final int len = filtered.length();
+        char[] buf = null;
+        int w = 0;
+        for (int i = 0; i < len; i++) {
+            final char c = filtered.charAt(i);
+
+            if ((char) (c - 'A') <= 25 || (char) (c - '0') <= 9 || c == '_') {
+                if (buf == null) {
+                    continue;
+                }
+                buf[w++] = c;
+                continue;
+            }
+            if (buf == null) {
+                buf = new char[len];
+                filtered.getChars(0, i, buf, 0);
+                w = i;
+            }
+            if ((char) (c - 'a') <= 25) {
+                buf[w++] = (char) (c - 32);
+                continue;
+            }
+            if (isMatchMaterialWhitespace(c)) {
+                if (i == 0 || !isMatchMaterialWhitespace(filtered.charAt(i - 1))) {
+                    buf[w++] = '_';
+                }
+            }
+        }
+        if (buf == null) {
+            return filtered;
+        }
+        return new String(buf, 0, w);
+    }
+
+    private static boolean isMatchMaterialWhitespace(final char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == 0x0B || c == '\f' || c == '\r';
+    }
+    // Leaf end - Avoid regex in Material#matchMaterial
 
     static {
         for (Material material : values()) {
@@ -3863,4 +3902,40 @@ public enum Material implements Keyed, Translatable, net.kyori.adventure.transla
         return this.asItemType().getDefaultDataTypes();
     }
     // Paper end - data component API
+
+    // Purpur start - ItemStack convenience methods
+    public boolean isArmor() {
+        switch (this) {
+            // <editor-fold defaultstate="collapsed" desc="isarmor">
+            case LEATHER_BOOTS:
+            case LEATHER_CHESTPLATE:
+            case LEATHER_HELMET:
+            case LEATHER_LEGGINGS:
+            case CHAINMAIL_BOOTS:
+            case CHAINMAIL_CHESTPLATE:
+            case CHAINMAIL_HELMET:
+            case CHAINMAIL_LEGGINGS:
+            case IRON_BOOTS:
+            case IRON_CHESTPLATE:
+            case IRON_HELMET:
+            case IRON_LEGGINGS:
+            case GOLDEN_BOOTS:
+            case GOLDEN_CHESTPLATE:
+            case GOLDEN_HELMET:
+            case GOLDEN_LEGGINGS:
+            case DIAMOND_BOOTS:
+            case DIAMOND_CHESTPLATE:
+            case DIAMOND_HELMET:
+            case DIAMOND_LEGGINGS:
+            case NETHERITE_BOOTS:
+            case NETHERITE_CHESTPLATE:
+            case NETHERITE_HELMET:
+            case NETHERITE_LEGGINGS:
+            case TURTLE_HELMET:
+                return true;
+            default:
+                return false;
+        }
+    }
+    // Purpur end - ItemStack convenience methods
 }

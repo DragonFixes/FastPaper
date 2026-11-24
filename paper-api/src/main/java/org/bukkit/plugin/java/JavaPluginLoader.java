@@ -54,6 +54,13 @@ public final class JavaPluginLoader implements PluginLoader {
     private final List<PluginClassLoader> loaders = new CopyOnWriteArrayList<PluginClassLoader>();
     private final LibraryLoader libraryLoader;
 
+    // Gale start - Purpur - do not log plugin library loads
+    public static boolean SuppressLibraryLoaderLogger = false; // This is not set by Gale, but is included for compatibility with Purpur plugins
+    public static boolean logDownloads = true;
+    public static boolean logStartLoadLibrariesForPlugin = true;
+    public static boolean logLibraryLoaded = true;
+    // Gale end - Purpur - do not log plugin library loads
+
     /**
      * This class was not meant to be constructed explicitly
      *
@@ -334,7 +341,9 @@ public final class JavaPluginLoader implements PluginLoader {
             try {
                 jPlugin.setEnabled(true);
             } catch (Throwable ex) {
+                gg.pufferfish.pufferfish.sentry.SentryContext.setPluginContext(plugin); // Pufferfish
                 server.getLogger().log(Level.SEVERE, "Error occurred while enabling " + plugin.getDescription().getFullName() + " (Is it up to date?)", ex);
+                gg.pufferfish.pufferfish.sentry.SentryContext.removePluginContext(); // Pufferfish
             }
 
             // Perhaps abort here, rather than continue going, but as it stands,
@@ -359,7 +368,9 @@ public final class JavaPluginLoader implements PluginLoader {
             try {
                 jPlugin.setEnabled(false);
             } catch (Throwable ex) {
+                gg.pufferfish.pufferfish.sentry.SentryContext.setPluginContext(plugin); // Pufferfish
                 server.getLogger().log(Level.SEVERE, "Error occurred while disabling " + plugin.getDescription().getFullName() + " (Is it up to date?)", ex);
+                gg.pufferfish.pufferfish.sentry.SentryContext.removePluginContext(); // Pufferfish
             }
 
             if (cloader instanceof PluginClassLoader) {

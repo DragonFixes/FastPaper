@@ -2255,6 +2255,48 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
      */
     public double @NotNull [] getTPS();
 
+    // Gale start - Purpur - 5-second TPS average
+    /**
+     * Gets the current server TPS
+     *
+     * @return current server TPS (5s, 1m, 5m, 15m in Gale-Server)
+     */
+    double @NotNull [] getTPSIncluding5SecondAverage();
+    // Gale end - Purpur - 5-second TPS average
+
+    // Gale start - specific interval TPS API
+
+    // Gale start - Purpur - 5-second TPS average
+    /**
+     * Gets the average server TPS over the last 5 seconds
+     *
+     * @return the average server TPS over the last 5 seconds
+     */
+    double get5SecondTPSAverage();
+    // Gale end - Purpur - 5-second TPS average
+
+    /**
+     * Gets the average server TPS over the last 1 minute
+     *
+     * @return the average server TPS over the last 1 minute
+     */
+    double get1MinuteTPSAverage();
+
+    /**
+     * Gets the average server TPS over the last 5 minutes
+     *
+     * @return the average server TPS over the last 5 minutes
+     */
+    double get5MinuteTPSAverage();
+
+    /**
+     * Gets the average server TPS over the last 15 minutes
+     *
+     * @return the average server TPS over the last 15 minutes
+     */
+    double get15MinuteTPSAverage();
+    // Gale end - specific interval TPS API
+
     /**
      * Get a sample of the servers last tick times (in nanos)
      *
@@ -2508,7 +2550,34 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
         public org.bukkit.configuration.file.YamlConfiguration getPaperConfig() {
             throw new UnsupportedOperationException("Not supported yet.");
         }
+
+        // Gale start - Gale configuration - API
+        /**
+         * @deprecated Server config options may be renamed or removed without notice. Another API will be provided
+         * once the APIs of other configurations change.
+         *
+         * @return The server's gale config.
+         */
+        @Deprecated(since = "1.21.4", forRemoval = true)
+        @NotNull
+        public org.bukkit.configuration.file.YamlConfiguration getGaleConfig() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+        // Gale end - Gale configuration - API
+
         // Paper end
+
+        // Purpur start
+        @NotNull
+        public org.bukkit.configuration.file.YamlConfiguration getPurpurConfig() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        @NotNull
+        public java.util.Properties getServerProperties() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+        // Purpur end
 
         /**
          * Sends the component to the player
@@ -2850,4 +2919,133 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
      */
     void allowPausing(@NotNull org.bukkit.plugin.Plugin plugin, boolean value);
     // Paper end - API to check if the server is sleeping
+
+    // Purpur start - Bring back server name
+    /**
+     * Get the name of this server
+     * @return the name of the server
+     */
+    @NotNull
+    String getServerName();
+    // Purpur end - Bring back server name
+
+    // Purpur start - Lagging threshold
+    /**
+     * Check if server is lagging according to laggy threshold setting
+     *
+     * @return True if lagging
+     */
+    boolean isLagging();
+    // Purpur end - Lagging threshold
+
+    // Purpur start - Debug Marker API
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    void sendBlockHighlight(@NotNull Location location, int duration);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param argb Color of the highlight. ARGB int. Will be ignored on some versions of vanilla client
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    void sendBlockHighlight(@NotNull Location location, int duration, int argb);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    void sendBlockHighlight(@NotNull Location location, int duration, @NotNull String text);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @param argb Color of the highlight. ARGB int. Will be ignored on some versions of vanilla client
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    void sendBlockHighlight(@NotNull Location location, int duration, @NotNull String text, int argb);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param color Color of the highlight. Will be ignored on some versions of vanilla client
+     * @param transparency Transparency of the highlight
+     * @throws IllegalArgumentException If transparency is outside 0-255 range
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    void sendBlockHighlight(@NotNull Location location, int duration, @NotNull org.bukkit.Color color, int transparency);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @param color Color of the highlight. Will be ignored on some versions of vanilla client
+     * @param transparency Transparency of the highlight
+     * @throws IllegalArgumentException If transparency is outside 0-255 range
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    void sendBlockHighlight(@NotNull Location location, int duration, @NotNull String text, @NotNull org.bukkit.Color color, int transparency);
+
+    /**
+     * Clears all debug block highlights for all players on the server.
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    void clearBlockHighlights();
+    // Purpur end - Debug Marker API
+
+    // Gale start - YAPFA - last tick time - API
+    /**
+     * Gets the total time spent in the last tick,
+     * which includes both the time spent on processing and the time spent in oversleep.
+     *
+     * @return the total time spent in the last tick, in milliseconds
+     */
+    long getLastTickTotalTime();
+
+    /**
+     * Gets the time spent on processing in the last tick,
+     * not including the time spent in oversleep.
+     *
+     * @return the total time spent on processing in the last tick, in milliseconds
+     */
+    long getLastTickProperTime();
+
+    /**
+     * Gets the time spent in oversleep in the last tick.
+     *
+     * @return the total time spent in oversleep in the last tick, in milliseconds
+     */
+    long getLastTickOversleepTime();
+    // Gale end - YAPFA - last tick time - API
 }

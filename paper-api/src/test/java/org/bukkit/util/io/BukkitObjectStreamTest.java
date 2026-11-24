@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
 import static org.bukkit.support.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -81,7 +80,7 @@ public class BukkitObjectStreamTest {
             oos.writeObject(object);
         }
 
-        final byte[] preEncodedArray = Base64Coder.decode(preEncoded);
+        final byte[] preEncodedArray = java.util.Base64.getMimeDecoder().decode(preEncoded); // Leaf - Fix paper tests
 
         final Object readBack;
         final Object encoded;
@@ -116,7 +115,7 @@ public class BukkitObjectStreamTest {
             oos.flush();
         }
 
-        final String string = new String(Base64Coder.encode(out.toByteArray()));
+        final String string = java.util.Base64.getEncoder().encodeToString(out.toByteArray()); // Leaf - Fix paper tests
         try {
             assertThat(preEncoded, is(string));
         } catch (final Throwable t) {

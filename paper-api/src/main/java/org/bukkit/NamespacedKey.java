@@ -37,6 +37,10 @@ public final class NamespacedKey implements Key, com.destroystokyo.paper.Namespa
 
     private final String namespace;
     private final String key;
+    // Leaf start - Cache namespacedKey toString and hash
+    private String keyStr;
+    private int hash;
+    // Leaf - Cache namespacedKey toString and hash
 
     /**
      * Create a key in a specific namespace.
@@ -110,9 +114,14 @@ public final class NamespacedKey implements Key, com.destroystokyo.paper.Namespa
 
     @Override
     public int hashCode() {
-        int result = this.namespace.hashCode();
-        result = (31 * result) + this.key.hashCode();
-        return result;
+        // Leaf start - Cache namespacedKey toString and hash
+        int hash = this.hash;
+        if  (hash == 0) {
+            hash = (31 * this.namespace.hashCode()) + this.key.hashCode();
+            this.hash = hash;
+        }
+        return hash;
+        // Leaf end - Cache namespacedKey toString and hash
     }
 
     @Override
@@ -127,7 +136,14 @@ public final class NamespacedKey implements Key, com.destroystokyo.paper.Namespa
 
     @Override
     public String toString() {
-        return this.namespace + ':' + this.key;
+        // Leaf start - Cache namespacedKey toString and hash
+        String keyStr = this.keyStr;
+        if  (keyStr == null) {
+            keyStr = this.namespace + ':' + this.key;
+            this.keyStr = keyStr;
+        }
+        return keyStr;
+        // Leaf end - Cache namespacedKey toString and hash
     }
 
     /**

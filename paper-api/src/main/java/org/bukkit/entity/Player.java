@@ -2202,6 +2202,16 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
     boolean listPlayer(Player other);
     // Paper end
 
+    // Gale start - Purpur - Player#canSee by entity UUID
+    /**
+     * Checks to see if an entity has been visually hidden from this player.
+     *
+     * @param entityUUID The {@link Entity#getUniqueId()} of the entity to check
+     * @return True if the entity with the provided UUID is not being hidden from this player
+     */
+    boolean canSeePlayer(UUID entityUUID);
+    // Gale end - Purpur - Player#canSee by entity UUID
+
     /**
      * Checks to see if this player is currently flying or not.
      *
@@ -3843,6 +3853,33 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
      */
     @Nullable String getClientBrandName();
 
+    /**
+     * This abuses some of how Minecraft works and attempts to teleport a player to another world without
+     * triggering typical respawn packets. All of natural state of chunk resends, entity adds/removes, etc still
+     * happen but the visual "refresh" of a world change is hidden. Depending on the destination location/world,
+     * this can act as a "smooth teleport" to a world if the new world is very similar looking to the old one.
+     *
+     * @param location New location to teleport this Player to
+     * @deprecated use {@link #teleportWithoutRespawnOptionally(Location)}
+     */
+    // Slice start
+    @org.jetbrains.annotations.ApiStatus.Experimental
+    @Deprecated(since = "1.21.1", forRemoval = true)
+    void teleportWithoutRespawn(Location location);
+
+    /**
+     * This abuses some of how Minecraft works and attempts to teleport a player to another world without
+     * triggering typical respawn packets. All of natural state of chunk resends, entity adds/removes, etc still
+     * happen but the visual "refresh" of a world change is hidden. Depending on the destination location/world,
+     * this can act as a "smooth teleport" to a world if the new world is very similar looking to the old one.
+     *
+     * @param location New location to teleport this Player to
+     * @return Whether the teleport was successful
+     */
+    @org.jetbrains.annotations.ApiStatus.Experimental
+    boolean teleportWithoutRespawnOptionally(Location location);
+    // Slice end
+
     // Paper start - Teleport API
     /**
      * Sets the player's rotation.
@@ -4095,4 +4132,123 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
      * @return the post-effects
      */
     PlayerPostEffects postEffects();
+
+    // Purpur start
+    /**
+     * Allows you to get if player uses PurpurClient
+     *
+     * @return true if player uses PurpurClient
+     */
+    boolean usesPurpurClient();
+
+    /**
+     * Check if player is AFK
+     *
+     * @return True if AFK
+     */
+    boolean isAfk();
+
+    /**
+     * Set player as AFK
+     *
+     * @param setAfk Whether to set AFK or not
+     */
+    void setAfk(boolean setAfk);
+
+    /**
+     * Reset the idle timer back to 0
+     * @deprecated Use {@link #resetIdleDuration()} instead
+     */
+    void resetIdleTimer();
+
+    /**
+     * Creates debug block highlight on specified block location and show it to this player.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     */
+    void sendBlockHighlight(Location location, int duration);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to this player.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param argb Color of the highlight. ARGB int. Will be ignored on some versions of vanilla client
+     */
+    void sendBlockHighlight(Location location, int duration, int argb);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to this player.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     */
+    void sendBlockHighlight(Location location, int duration, String text);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to this player.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @param argb Color of the highlight. ARGB int. Will be ignored on some versions of vanilla client
+     */
+    void sendBlockHighlight(Location location, int duration, String text, int argb);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to this player.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param color Color of the highlight. Will be ignored on some versions of vanilla client
+     * @param transparency Transparency of the highlight
+     * @throws IllegalArgumentException If transparency is outside 0-255 range
+     */
+    void sendBlockHighlight(Location location, int duration, org.bukkit.Color color, int transparency);
+
+    /**
+     * Creates debug block highlight on specified block location and show it to this player.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @param color Color of the highlight. Will be ignored on some versions of vanilla client
+     * @param transparency Transparency of the highlight
+     * @throws IllegalArgumentException If transparency is outside 0-255 range
+     */
+    void sendBlockHighlight(Location location, int duration, String text, org.bukkit.Color color, int transparency);
+
+    /**
+     * Clears all debug block highlights
+     */
+    void clearBlockHighlights();
+
+    /**
+     * Sends a player the death screen with a specified death message.
+     *
+     * @param message The death message to show the player
+     */
+    void sendDeathScreen(net.kyori.adventure.text.Component message);
+
+    /**
+     * Sends a player the death screen with a specified death message,
+     * along with the entity that caused the death.
+     *
+     * @param message The death message to show the player
+     * @param killer The entity that killed the player
+     * @deprecated Use {@link #sendDeathScreen(net.kyori.adventure.text.Component)} instead, as 1.20 removed the killer ID from the packet.
+     */
+    @Deprecated(since = "1.20")
+    default void sendDeathScreen(net.kyori.adventure.text.Component message, @Nullable Entity killer) {
+        sendDeathScreen(message);
+    }
+    // Purpur end
 }

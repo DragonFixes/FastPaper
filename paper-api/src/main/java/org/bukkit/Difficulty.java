@@ -34,7 +34,7 @@ public enum Difficulty implements net.kyori.adventure.translation.Translatable {
     HARD(3);
 
     private final int value;
-    private static final Map<Integer, Difficulty> BY_ID = Maps.newHashMap();
+    private static final it.unimi.dsi.fastutil.ints.Int2ReferenceMap<Difficulty> BY_ID = new it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap<>(); // Leaf - Replace data maps with optimized collection
 
     private Difficulty(final int value) {
         this.value = value;

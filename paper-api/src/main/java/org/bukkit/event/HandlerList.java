@@ -38,6 +38,8 @@ public class HandlerList {
      */
     private static final java.util.Set<String> EVENT_TYPES = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    public static short isListeningInvOverflowCached = -1; // Leaf - PlayerInventoryOverflowEvent
+
     /**
      * Bake all handler lists. Best used just after all normal event
      * registration is complete, ie just after all plugins are loaded if
@@ -64,6 +66,7 @@ public class HandlerList {
                     h.handlers = null;
                 }
             }
+            isListeningInvOverflowCached = -1; // Leaf - PlayerInventoryOverflowEvent
         }
     }
 
@@ -144,6 +147,7 @@ public class HandlerList {
     public synchronized void unregister(@NotNull RegisteredListener listener) {
         if (handlerslots.get(listener.getPriority()).remove(listener)) {
             handlers = null;
+            isListeningInvOverflowCached = -1; // Leaf - PlayerInventoryOverflowEvent
         }
     }
 
@@ -162,7 +166,12 @@ public class HandlerList {
                 }
             }
         }
-        if (changed) handlers = null;
+        // Leaf start - PlayerInventoryOverflowEvent
+        if (changed) {
+            handlers = null;
+            isListeningInvOverflowCached = -1;
+        }
+        // Leaf end - PlayerInventoryOverflowEvent
     }
 
     /**
@@ -180,7 +189,12 @@ public class HandlerList {
                 }
             }
         }
-        if (changed) handlers = null;
+        // Leaf start - PlayerInventoryOverflowEvent
+        if (changed) {
+            handlers = null;
+            isListeningInvOverflowCached = -1;
+        }
+        // Leaf end - PlayerInventoryOverflowEvent
     }
 
     /**

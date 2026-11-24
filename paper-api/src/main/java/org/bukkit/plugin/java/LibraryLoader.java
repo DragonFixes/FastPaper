@@ -49,6 +49,7 @@ public class LibraryLoader {
     public static java.util.function.BiFunction<URL[], ClassLoader, URLClassLoader> LIBRARY_LOADER_FACTORY; // Paper - bytecode rewriting hook
 
     private static List<RemoteRepository> getRepositories() {
+        if (MavenLibraryResolver.CUSTOM_MAVEN_CENTRAL_MIRROR_REPO  != null) return List.of(MavenLibraryResolver.CUSTOM_MAVEN_CENTRAL_MIRROR_REPO ); // Leaf - Configurable LibraryLoader maven repos
         return List.of(new RemoteRepository.Builder("central", "default", MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR).build());
     }
 
@@ -68,6 +69,7 @@ public class LibraryLoader {
         session.setTransferListener(new AbstractTransferListener() {
             @Override
             public void transferStarted(@NotNull TransferEvent event) {
+                if (JavaPluginLoader.logDownloads && !JavaPluginLoader.SuppressLibraryLoaderLogger) // Gale - Purpur - do not log plugin library loads
                 logger.log(Level.INFO, "Downloading {0}", event.getResource().getRepositoryUrl() + event.getResource().getResourceName());
             }
         });
@@ -93,6 +95,7 @@ public class LibraryLoader {
             // Paper end - plugin loader api
             return null;
         }
+        if (JavaPluginLoader.logStartLoadLibrariesForPlugin && !JavaPluginLoader.SuppressLibraryLoaderLogger) // Gale - Purpur - do not log plugin library loads
         logger.log(Level.INFO, "[{0}] Loading {1} libraries... please wait", new Object[]
             {
                 java.util.Objects.requireNonNullElseGet(desc.getPrefix(), desc::getName), desc.getLibraries().size() // Paper - use configured log prefix
@@ -142,6 +145,7 @@ public class LibraryLoader {
             }
 
             jarFiles.add(url);
+            if (JavaPluginLoader.logLibraryLoaded && !JavaPluginLoader.SuppressLibraryLoaderLogger) // Gale - Purpur - do not log plugin library loads
             logger.log(Level.INFO, "[{0}] Loaded library {1}", new Object[]
                 {
                     java.util.Objects.requireNonNullElseGet(desc.getPrefix(), desc::getName), file // Paper - use configured log prefix

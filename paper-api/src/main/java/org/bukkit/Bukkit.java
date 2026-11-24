@@ -2514,6 +2514,57 @@ public final class Bukkit {
         return server.getTPS();
     }
 
+    // Gale start - Purpur - 5-second TPS average
+    /**
+     * Gets the current server TPS
+     * @return current server TPS (5s, 1m, 5m, 15m in Gale-Server)
+     */
+    public static double @NotNull [] getTPSIncluding5SecondAverage() {
+        return server.getTPSIncluding5SecondAverage();
+    }
+    // Gale end - Purpur - 5-second TPS average
+
+    // Gale start - specific interval TPS API
+
+    // Gale start - Purpur - 5-second TPS average
+    /**
+     * Gets the average server TPS over the last 5 seconds
+     *
+     * @return the average server TPS over the last 5 seconds
+     */
+    public static double get5SecondTPSAverage() {
+        return server.get5SecondTPSAverage();
+    }
+    // Gale end - Purpur - 5-second TPS average
+
+    /**
+     * Gets the average server TPS over the last 1 minute
+     *
+     * @return the average server TPS over the last 1 minute
+     */
+    public static double get1MinuteTPSAverage() {
+        return server.get1MinuteTPSAverage();
+    }
+
+    /**
+     * Gets the average server TPS over the last 5 minutes
+     *
+     * @return the average server TPS over the last 5 minutes
+     */
+    public static double get5MinuteTPSAverage() {
+        return server.get5MinuteTPSAverage();
+    }
+
+    /**
+     * Gets the average server TPS over the last 15 minutes
+     *
+     * @return the average server TPS over the last 15 minutes
+     */
+    public static double get15MinuteTPSAverage() {
+        return server.get15MinuteTPSAverage();
+    }
+    // Gale end - specific interval TPS API
+
     /**
      * Get a sample of the servers last tick times (in nanos)
      *
@@ -3076,6 +3127,20 @@ public final class Bukkit {
     }
     // Paper end - Folia region threading API
 
+    // Gale start - YAPFA - last tick time - API
+    public static long getLastTickTotalTime() {
+        return server.getLastTickTotalTime();
+    }
+
+    public static long getLastTickProperTime() {
+        return server.getLastTickProperTime();
+    }
+
+    public static long getLastTickOversleepTime() {
+        return server.getLastTickOversleepTime();
+    }
+    // Gale end - YAPFA - last tick time - API
+
     /**
      * @deprecated All methods on this class have been deprecated, see the individual methods for replacements.
      */
@@ -3091,4 +3156,126 @@ public final class Bukkit {
     public static void restart() {
         server.restart();
     }
+
+    // Purpur start - Bring back server name
+    /**
+     * Get the name of this server
+     * @return the name of the server
+     */
+    @NotNull
+    public static String getServerName() {
+        return server.getServerName();
+    }
+    // Purpur end - Bring back server name
+
+    // Purpur start - Lagging threshold
+    /**
+     * Check if server is lagging according to laggy threshold setting
+     *
+     * @return True if lagging
+     */
+    public static boolean isLagging() {
+        return server.isLagging();
+    }
+    // Purpur end - Lagging threshold
+
+    // Purpur start - Debug Marker API
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    public static void sendBlockHighlight(@NotNull Location location, int duration) {
+        server.sendBlockHighlight(location, duration);
+    }
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param argb Color of the highlight. ARGB int. Will be ignored on some versions of vanilla client
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    public static void sendBlockHighlight(@NotNull Location location, int duration, int argb) {
+        server.sendBlockHighlight(location, duration, argb);
+    }
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    public static void sendBlockHighlight(@NotNull Location location, int duration, @NotNull String text) {
+        server.sendBlockHighlight(location, duration, text);
+    }
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @param argb Color of the highlight. ARGB int. Will be ignored on some versions of vanilla client
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    public static void sendBlockHighlight(@NotNull Location location, int duration, @NotNull String text, int argb) {
+        server.sendBlockHighlight(location, duration, text, argb);
+    }
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param color Color of the highlight. Will be ignored on some versions of vanilla client
+     * @param transparency Transparency of the highlight
+     * @throws IllegalArgumentException If transparency is outside 0-255 range
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    public static void sendBlockHighlight(@NotNull Location location, int duration, @NotNull org.bukkit.Color color, int transparency) {
+        server.sendBlockHighlight(location, duration, color, transparency);
+    }
+
+    /**
+     * Creates debug block highlight on specified block location and show it to all players on the server.
+     * <p>
+     * Clients may be inconsistent in displaying it.
+     * @param location Location to highlight
+     * @param duration Duration for highlight to show in milliseconds
+     * @param text Text to show above the highlight
+     * @param color Color of the highlight. Will be ignored on some versions of vanilla client
+     * @param transparency Transparency of the highlight
+     * @throws IllegalArgumentException If transparency is outside 0-255 range
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    public static void sendBlockHighlight(@NotNull Location location, int duration, @NotNull String text, @NotNull org.bukkit.Color color, int transparency) {
+        server.sendBlockHighlight(location, duration, text, color, transparency);
+    }
+
+    /**
+     * Clears all debug block highlights for all players on the server.
+     * @deprecated until further notice. NOOP since 1.21.10
+     */
+    @Deprecated
+    public static void clearBlockHighlights() {
+        server.clearBlockHighlights();
+    }
+    // Purpur end - Debug Marker API
 }

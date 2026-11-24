@@ -66,9 +66,10 @@ public enum MushroomBlockTexture {
      * Stem texture on all faces.
      */
     ALL_STEM(15, null);
-    private static final Map<Byte, MushroomBlockTexture> BY_DATA = Maps.newHashMap();
-    private static final Map<@Nullable BlockFace, MushroomBlockTexture> BY_BLOCKFACE = Maps.newHashMap();
-
+    // Leaf start - Replace data maps with optimized collection
+    private static final it.unimi.dsi.fastutil.bytes.Byte2ReferenceMap<MushroomBlockTexture> BY_DATA = new it.unimi.dsi.fastutil.bytes.Byte2ReferenceOpenHashMap<>();
+    private static final Map<@Nullable BlockFace, MushroomBlockTexture> BY_BLOCKFACE = new java.util.EnumMap<>(BlockFace.class);
+    // Leaf end - Replace data maps with optimized collection
     private final Byte data;
     private final @Nullable BlockFace capFace;
 
