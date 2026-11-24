@@ -36,6 +36,17 @@ FastPaper runs like a Paper server: start the paperclip jar with `java -jar`. Pa
 [documentation](https://docs.papermc.io) applies to configuration and plugins, except for the
 FastPaper-specific switches listed in [changes.md](changes.md).
 
+### Commands
+
+| Command | Permission (default: op) | What it does |
+|---|---|---|
+| `/tpsbar (targets)` | `bukkit.command.tpsbar`, `bukkit.command.tpsbar.other` for targets | Toggles a boss bar with TPS, MSPT and ping |
+| `/rambar (targets)` | `bukkit.command.rambar`, `bukkit.command.rambar.other` for targets | Toggles a boss bar with heap memory use |
+
+Both bars come from [Purpur](https://github.com/PurpurMC/Purpur) (MIT). A player's choice is kept
+across relogs and restarts. Titles, colors, fill mode and update interval are set under
+`commands.tpsbar` and `commands.rambar` in `config/paper-global.yml`.
+
 Plugin developers
 ------
 FastPaper keeps the Paper API. Plugins written for Paper 26.3 run on it unchanged, and you build
