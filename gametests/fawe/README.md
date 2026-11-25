@@ -36,6 +36,8 @@ The world is deleted at every start. Results go to `run-bench\fawe\results\<labe
 | `set-random` | big, huge | `//set 50%stone,50%dirt` | |
 | `undo` | big, huge | `//undo` | `//set`, 1.5 s for FAWE's async history write |
 | `clear-air` | big, huge | `//set air` | `//set stone` |
+| `light-set` | medium, big, huge | `//set` until the viewers got the last chunk/light resend | |
+| `light-paste` | medium, big, huge | `//paste` until the last chunk/light resend | `//set`, `//copy`, clear target |
 
 Sizes are 20x5x20, 50x20x50, 100x20x100 and 100x100x100 from (0,-60,0). The console uses `//world world`
 and `//pos1 x,y,z`; `//paste` places at pos1.
@@ -65,6 +67,24 @@ further rounds of 10 without the profiler.
 | undo | | | 150 / 150 | 150 / 150 |
 | clear-air | | | 51 / 52 | 51 / 51 |
 
+| light-set (until relit chunks reach clients) | | 250 / 250 | 251 / 249 | 251 / 249 |
+| light-paste | | 204 / 204 | 213 / 212 | 264 / 212 |
+
 No difference beyond a tick of jitter. JFR samples by thread were within noise as well (main thread
 369 vs 318 samples, mostly plugin loading and random ticks; light workers 983 vs 949). The only gap was
 spark's own sampler, which walks FastPaper's extra threads.
+
+A big edit resends every touched chunk plus a ring around it (81 `map_chunk` and 81 `update_light`
+for a 100x100 footprint). Relit light reaches clients about two ticks after FAWE's reply at every size,
+so the relight (one `radiusAwareScheduler` task per `starlight$serverRelightChunks` call, run serially
+on one worker) does not delay edits noticeably even at 1M blocks.
+
+## ScalableLux
+
+[ScalableLux](https://github.com/RelativityMC/ScalableLux) (LGPL-3.0, ver/26.3.0) is the Starlight
+mod with parallel light tasks: each task takes area locks on the chunks it touches and runs on its own
+pool. Moonrise already schedules light work that way (`AreaDependentQueue` on the chunk worker pool).
+Its engine classes are the older Starlight-mod copies with no algorithmic changes, and it has no
+server relight entry point to split. The one material difference is the per-thread nibble pool: 128
+arrays against the 8 Leaf's chunk-unload patch keeps; nibble allocations were about 2% of allocation
+in these runs on both servers, so the cap is not worth changing for this workload.

@@ -81,6 +81,8 @@ def region(size, origin=SRC):
 
 results = {}
 viewers = None
+last_pkt = {}
+pkt_count = {}
 def record(name, ms):
     results.setdefault(name, []).append(ms)
 
@@ -117,13 +119,48 @@ def bench_clear(size, rep):
     sel(*region(size)); cmd("//set stone", DONE["set"])
     return cmd("//set air", DONE["set"])[0]
 
+def settle(t0_ms, quiet_ms=1000, first_ms=5000, max_ms=30000):
+    """Waits for the chunk/light resends an edit causes and returns ms from t0_ms to the last one.
+
+    The resends follow FAWE's reply by a few ticks, so this first waits up to first_ms for one, then
+    until none arrived for quiet_ms. Block-change packets are ignored: covered grass turning to dirt
+    keeps sending them for seconds."""
+    def last():
+        return max(last_pkt.get("light", 0), last_pkt.get("chunk", 0))
+    now = lambda: time.time() * 1000
+    while now() < t0_ms + first_ms and last() <= t0_ms:
+        time.sleep(0.02)
+    if last() <= t0_ms:
+        return float("nan")
+    while now() < t0_ms + max_ms and now() - last() < quiet_ms:
+        time.sleep(0.02)
+    if os.environ.get("BENCH_DEBUG"): print("   settle", dict(pkt_count), flush=True)
+    return last() - t0_ms
+
+def bench_light_set(size, rep):
+    sel(*region(size)); time.sleep(1.5)
+    t0 = time.time() * 1000
+    cmd("//set " + ["stone", "dirt", "glass"][rep % 3], DONE["set"])
+    return settle(t0)
+
+def bench_light_paste(size, rep):
+    sel(*region(size)); cmd("//set " + ["stone", "glass"][rep % 2], DONE["set"]); cmd("//copy", DONE["copy"])
+    sel(*region(size, DST)); cmd("//set air", DONE["set"])
+    cmd(f"//pos1 {DST[0]},{DST[1]},{DST[2]}", DONE["pos"]); time.sleep(1.5)
+    t0 = time.time() * 1000
+    cmd("//paste", DONE["paste"])
+    return settle(t0)
+
 TESTS = [("set", bench_set, ["small", "medium", "big", "huge"]),
          ("replace", bench_replace, ["small", "medium", "big", "huge"]),
          ("copy", bench_copy, ["small", "medium", "big", "huge"]),
          ("paste", bench_paste, ["small", "medium", "big", "huge"]),
          ("set-random", bench_set_random, ["big", "huge"]),
          ("undo", bench_undo, ["big", "huge"]),
-         ("clear-air", bench_clear, ["big", "huge"])]
+         ("clear-air", bench_clear, ["big", "huge"]),
+         # time until the viewers received the last light/chunk packet the edit caused
+         ("light-set", bench_light_set, ["medium", "big", "huge"]),
+         ("light-paste", bench_light_paste, ["medium", "big", "huge"])]
 
 wait(r"Done \(", 300)
 time.sleep(3)
@@ -136,7 +173,11 @@ if not a.no_viewers:
         print("  viewer:", l.strip(), flush=True)
         if "READY" in l: break
         if "KICKED" in l or "ERROR" in l: raise SystemExit("viewer failed")
-    threading.Thread(target=lambda: [None for _ in viewers.stdout], daemon=True).start()
+    def viewer_reader():
+        for l in viewers.stdout:
+            m = re.match(r"PKT (\w+) (\d+)", l)
+            if m: last_pkt[m.group(1)] = int(m.group(2)); pkt_count[m.group(1)] = pkt_count.get(m.group(1), 0) + 1
+    threading.Thread(target=viewer_reader, daemon=True).start()
     for n, x in (("ViewA", 50), ("ViewB", 350)):
         cmd(f"gamemode spectator {n}"); cmd(f"tp {n} {x} -30 50")
     time.sleep(8)
