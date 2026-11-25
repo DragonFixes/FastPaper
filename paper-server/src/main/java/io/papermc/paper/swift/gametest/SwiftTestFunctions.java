@@ -81,6 +81,7 @@ public final class SwiftTestFunctions implements TestFunctionLoader {
         register.accept(key("poi_villager_takes_job"), SwiftPoiTests::takesJob);
         register.accept(key("poi_one_workstation_two_villagers"), SwiftPoiTests::oneWorkstationTwoVillagers);
         register.accept(key("fake_player_tag_scenario"), SwiftPlayerCommandTests::tagScenario);
+        register.accept(key("modify_player_data"), PlayerDataCommandTests::modifyPlayerData);
         register.accept(key("async_mob_crowd"), SwiftAsyncTests::mobCrowd);
         register.accept(key("async_village_distance_parallel_queries"), SwiftAsyncTests::villageDistanceParallelQueries);
         register.accept(key("async_item_pickup_no_dupe"), SwiftAsyncTests::itemPickupNoDupe);

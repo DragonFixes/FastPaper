@@ -72,6 +72,7 @@ public net.minecraft.server.level.ServerLevel entityManager
 public net.minecraft.server.level.ServerLevel findLightningRod(Lnet/minecraft/core/BlockPos;)Ljava/util/Optional;
 public net.minecraft.server.level.ServerLevel serverLevelData
 public net.minecraft.server.level.ServerPlayer containerSynchronizer
+public net.minecraft.server.level.ServerPlayer enteredNetherPosition
 public net.minecraft.server.level.ServerPlayer findRespawnAndUseSpawnBlock(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/server/level/ServerPlayer$RespawnConfig;Z)Ljava/util/Optional;
 public net.minecraft.server.level.ServerPlayer initMenu(Lnet/minecraft/world/inventory/AbstractContainerMenu;)V
 public net.minecraft.server.level.ServerPlayer language
@@ -221,15 +222,18 @@ public net.minecraft.world.entity.LivingEntity DATA_HEALTH_ID
 public net.minecraft.world.entity.LivingEntity LIVING_ENTITY_FLAG_SPIN_ATTACK
 public net.minecraft.world.entity.LivingEntity canGlide()Z
 public net.minecraft.world.entity.LivingEntity completeUsingItem()V
+public net.minecraft.world.entity.LivingEntity currentImpulseContextResetGraceTime
 public net.minecraft.world.entity.LivingEntity detectEquipmentUpdates()V
 public net.minecraft.world.entity.LivingEntity effectsDirty
 public net.minecraft.world.entity.LivingEntity entityEventForEquipmentBreak(Lnet/minecraft/world/entity/EquipmentSlot;)B
+public net.minecraft.world.entity.LivingEntity equipment
 public net.minecraft.world.entity.LivingEntity getDeathSound()Lnet/minecraft/sounds/SoundEvent;
 public net.minecraft.world.entity.LivingEntity getFallDamageSound(I)Lnet/minecraft/sounds/SoundEvent;
 public net.minecraft.world.entity.LivingEntity getHurtSound(Lnet/minecraft/world/damagesource/DamageSource;)Lnet/minecraft/sounds/SoundEvent;
 public net.minecraft.world.entity.LivingEntity getSoundVolume()F
 public net.minecraft.world.entity.LivingEntity lastHurt
 public net.minecraft.world.entity.LivingEntity lastHurtByMob
+public net.minecraft.world.entity.LivingEntity lastHurtByMobTimestamp
 public net.minecraft.world.entity.LivingEntity lastHurtByPlayer
 public net.minecraft.world.entity.LivingEntity lastHurtByPlayerMemoryTime
 public net.minecraft.world.entity.LivingEntity noActionTime
@@ -424,6 +428,7 @@ public net.minecraft.world.entity.player.Player closeContainer()V
 public net.minecraft.world.entity.player.Player enchantmentSeed
 public net.minecraft.world.entity.player.Player hurtDir
 public net.minecraft.world.entity.player.Player removeEntitiesOnShoulder()V
+public net.minecraft.world.entity.player.Player sleepCounter
 public net.minecraft.world.entity.player.Player updatePlayerPose()V
 public net.minecraft.world.entity.projectile.EvokerFangs warmupDelayTicks
 public net.minecraft.world.entity.projectile.EyeOfEnder life
@@ -484,6 +489,7 @@ public net.minecraft.world.entity.vehicle.minecart.MinecartTNT explosionSpeedFac
 public net.minecraft.world.entity.vehicle.minecart.MinecartTNT fuse
 public net.minecraft.world.flag.FeatureFlagRegistry names
 public net.minecraft.world.food.FoodData exhaustionLevel
+public net.minecraft.world.food.FoodData tickTimer
 public net.minecraft.world.inventory.AbstractContainerMenu menuType
 public net.minecraft.world.inventory.AbstractContainerMenu quickcraftSlots
 public net.minecraft.world.inventory.AbstractContainerMenu quickcraftStatus

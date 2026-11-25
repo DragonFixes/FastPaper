@@ -19,7 +19,7 @@
      private static final Logger LOGGER = LogUtils.getLogger();
      private static final String TAG_ACTIVE_EFFECTS = "active_effects";
 @@ -283,11 +_,24 @@
-     protected final EntityEquipment equipment;
+     public final EntityEquipment equipment;
      private Waypoint.Icon locatorBarIcon = new Waypoint.Icon();
      public @Nullable Vec3 currentImpulseImpactPos;
 +    // CraftBukkit start

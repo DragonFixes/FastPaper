@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DrakDv <business@drak.gg>
+Date: Wed, 25 Nov 2026 14:05:49 -0500
+Subject: [PATCH] FastPaper: data commands can modify player data
+
+Lets /data and /execute store write to players when
+gameplay-mechanisms.modify-player-data.enabled is on. The tags are
+applied by io.papermc.paper.fastpaper.playerdata.PlayerDataEditor,
+following the Modify Player Data mod by eclipseisoffline (LGPLv3).
+
+diff --git a/net/minecraft/server/commands/data/EntityDataAccessor.java b/net/minecraft/server/commands/data/EntityDataAccessor.java
+index 2e3790e0cd8a3e4be0326b08d4cc40d9791a00b5..359c2642184b4967faf844b48db31a41dcf96310 100644
+--- a/net/minecraft/server/commands/data/EntityDataAccessor.java
++++ b/net/minecraft/server/commands/data/EntityDataAccessor.java
+@@ -35,6 +35,12 @@ public class EntityDataAccessor implements DataAccessor {
+     @Override
+     public void setData(final CompoundTag tag) throws CommandSyntaxException {
+         if (this.entity instanceof Player) {
++            // FastPaper start - modify player data
++            if (org.dreeam.leaf.config.modules.gameplay.ModifyPlayerData.enabled && this.entity instanceof net.minecraft.server.level.ServerPlayer player) {
++                io.papermc.paper.fastpaper.playerdata.PlayerDataEditor.apply(player, tag, LOGGER);
++                return;
++            }
++            // FastPaper end - modify player data
+             throw ERROR_NO_PLAYERS.create();
+         }
+ 

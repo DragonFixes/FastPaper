@@ -8,7 +8,7 @@
 +    public String language = null; // Paper - default to null
 +    public java.util.Locale adventure$locale = java.util.Locale.US; // Paper
      private @Nullable Vec3 startingToFallPosition;
-     private @Nullable Vec3 enteredNetherPosition;
+     public @Nullable Vec3 enteredNetherPosition;
      private @Nullable Vec3 enteredLavaOnVehiclePosition;
 @@ -308,6 +_,13 @@
              }

@@ -3,7 +3,7 @@
 @@ -15,6 +_,11 @@
      private float saturationLevel = FoodConstants.START_SATURATION;
      public float exhaustionLevel;
-     private int tickTimer;
+     public int tickTimer;
 +    // CraftBukkit start
 +    public int saturatedRegenRate = FoodConstants.HEALTH_TICK_COUNT_SATURATED;
 +    public int unsaturatedRegenRate = FoodConstants.HEALTH_TICK_COUNT;
