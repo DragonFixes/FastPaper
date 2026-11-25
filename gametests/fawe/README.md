@@ -66,7 +66,6 @@ further rounds of 10 without the profiler.
 | set-random | | | 149 / 148 | 150 / 150 |
 | undo | | | 150 / 150 | 150 / 150 |
 | clear-air | | | 51 / 52 | 51 / 51 |
-
 | light-set (until relit chunks reach clients) | | 250 / 250 | 251 / 249 | 251 / 249 |
 | light-paste | | 204 / 204 | 213 / 212 | 264 / 212 |
 
