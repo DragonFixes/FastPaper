@@ -739,6 +739,52 @@ look-and-interact search and reports any difference. A planted bug (the index sk
 both look-and-interact tests. The whole suite (74 tests) passes normally, with `-Dswift.verify=true` (56.8
 million checks, 0 mismatches) and three times with parallel entity ticking.
 
+---
+
+## 0070: data commands can modify player data (FastPaper, off by default)
+
+A gameplay feature, not a performance change. Vanilla refuses `/data merge|modify|remove entity <player>`
+and `/execute store ... entity <player>` with "Unable to modify player data". With
+`gameplay-mechanisms.modify-player-data.enabled: true` in Leaf's global config, those commands change the
+player instead, like the [Modify Player Data](https://github.com/eclipseisoffline/modifyplayerdata) mod
+(eclipseisoffline, LGPLv3) does on Fabric and NeoForge. Off by default, so the vanilla error stays unless
+an owner opts in.
+
+The patch only routes `EntityDataAccessor.setData` for players to
+`io.papermc.paper.fastpaper.playerdata.PlayerDataEditor`. The data commands write back the player's whole
+tag, so the editor first keeps only the keys whose value differs from the current tag, then applies each one
+through the setter gameplay uses, so the client is updated:
+
+- Supported: `Pos`, `Rotation`, `Motion`, `fall_distance`, `Fire`, `Air`, `Invulnerable`, `PortalCooldown`,
+  `invulnerable_time`, `Silent`, `NoGravity`, `Glowing`, `TicksFrozen`, `HasVisualFire`, `Tags`, `data`,
+  `Health`, `HurtTime`, `AbsorptionAmount`, `attributes`, `active_effects`, `current_explosion_impact_pos`,
+  `current_impulse_context_reset_grace_time`, `FallFlying`, `last_hurt_by_player(_memory_time)`,
+  `last_hurt_by_mob`, `ticks_since_last_hurt_by_mob`, `equipment`, `locator_bar_icon`, `Inventory`,
+  `SelectedItem`, `SelectedItemSlot`, `SleepTimer`, `XpSeed`, `Score`, `foodLevel`, `foodTickTimer`,
+  `foodSaturationLevel`, `foodExhaustionLevel`, `abilities`, `EnderItems`, `warden_spawn_tracker`,
+  `seenCredits`, `entered_nether_pos`, `recipeBook`, `respawn`, `spawn_extra_particles_on_fall`,
+  `raid_omen_position`, `post_effects`.
+- Ignored, as in the mod (other commands cover them): `UUID`, `Dimension`, `playerGameType`, `XpLevel`,
+  `XpP`, `XpTotal`, `CustomName`, `RootVehicle`, `OnGround` and the rest of the tag.
+- Removing `Tags`, `data` or `active_effects` empties them (the player tag omits them when empty).
+
+Differences from the mod, for Paper: `Pos` and `Rotation` teleport with cause `COMMAND`, so plugins see a
+`PlayerTeleportEvent`. `active_effects` goes through `removeAllEffects`/`addEffect` with cause `COMMAND`, so
+effect attribute modifiers (speed, strength, health boost) come and go with the effects. `attributes` resets
+base values and permanent modifiers in the existing attribute map instead of replacing it, so armour and
+effect modifiers stay and Bukkit's attribute API keeps working. `LeftHanded` is left out: the client resends
+its main hand with its settings. `HasVisualFire` sets Paper's visual-fire override.
+
+Access transformers added for the editor: `FoodData.tickTimer`, `Player.sleepCounter`,
+`ServerPlayer.enteredNetherPosition`, `LivingEntity.currentImpulseContextResetGraceTime`,
+`LivingEntity.lastHurtByMobTimestamp`, `LivingEntity.equipment`.
+
+**Tests:** `modify_player_data` (a fake op player types the commands): with the switch off, `data merge` on
+the player fails and changes nothing; with it on, `foodLevel`, `Health`, `Air` via `execute store`, `Tags`
+append and remove, `SelectedItemSlot`, `Inventory` append, `active_effects` (speed raises movement speed,
+removing it restores it), `attributes` and `Pos` apply, and a merge of an unrelated key leaves the player
+where they are.
+
 ## How the changes are tested
 
 - **GameTests inside a real Paper server** (`./gradlew :paper-server:runGameTests`): behaviour tests
