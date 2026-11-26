@@ -116,6 +116,15 @@ made and rebuilt.
 
 Credits
 ------
-FastPaper is based on [Paper](https://github.com/PaperMC/Paper) by the PaperMC team and on the
-Swift patches by [Swift-ality](https://github.com/Swift-ality/Paper). See [LICENSE.md](LICENSE.md)
-for licensing.
+FastPaper builds on the work of these projects:
+
+* [Paper](https://github.com/PaperMC/Paper) by the PaperMC team: the server FastPaper is a fork of.
+* [Swift](https://github.com/Swift-ality/Paper) by Swift-ality: the performance patches.
+* [Leaf](https://github.com/Winds-Studio/Leaf) by Winds Studio: Leaf's 26.3 patches, including
+  the Gale patches they carry. Each patch's commit message lists its original authors.
+* [Purpur](https://github.com/PurpurMC/Purpur) by the PurpurMC team: Purpur's server changes and
+  the `/tpsbar` and `/rambar` commands.
+* [Modify Player Data](https://github.com/eclipseisoffline/modifyplayerdata) by eclipseisoffline:
+  the idea and behavior behind letting data commands modify players.
+
+See [LICENSE.md](LICENSE.md) for licensing.
