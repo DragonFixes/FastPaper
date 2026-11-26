@@ -38,6 +38,21 @@ for (name in listOf("paper-api", "paper-server")) {
 
 include("paper-checkstyle")
 
+// The bundled spark profiler (SparksFly) is built from the DragonFixes spark fork when a
+// checkout of it is present, so its native memory and heap leak profiling ship in the
+// server jar. The directory comes from the `fastpaper.sparkDir` Gradle property (default:
+// the sibling Fixes\Spark checkout); without a checkout the published spark artifacts
+// declared in paper-server/build.gradle.kts are used instead.
+val sparkDir = file(providers.gradleProperty("fastpaper.sparkDir").getOrElse("../../Fixes/Spark"))
+if (file("$sparkDir/settings.gradle").exists()) {
+    includeBuild(sparkDir) {
+        dependencySubstitution {
+            substitute(module("me.lucko:spark-api")).using(project(":spark-api"))
+            substitute(module("me.lucko:spark-paper")).using(project(":spark-paper"))
+        }
+    }
+}
+
 optionalInclude("test-plugin")
 optionalInclude("paper-generator")
 

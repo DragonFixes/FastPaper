@@ -180,7 +180,11 @@ dependencies {
 
     // Spark
     implementation("me.lucko:spark-api:0.1-dev-284ead8-20260826.125727-1") // Leaf - Better spark integration
-    implementation("me.lucko:spark-paper:1.10-dev-284ead8-20260826.125812-1") // Leaf - Better spark integration
+    implementation("me.lucko:spark-paper:1.10-dev-284ead8-20260826.125812-1") { // Leaf - Better spark integration
+        // spark-paper is only usable as its shadow jar: the server code imports the relocated
+        // me.lucko.spark.paper.common classes, which the plain project jar does not contain.
+        attributes { attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED)) }
+    }
 
     implementation("io.netty:netty-all:4.2.17.Final") // Leaf - io_uring support
 }
