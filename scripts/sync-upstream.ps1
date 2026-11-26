@@ -6,7 +6,7 @@
 
 .DESCRIPTION
     Fetches the "paper" (PaperMC/Paper) and "upstream" (Swift-ality/Paper)
-    remotes, then prints ahead/behind counts for develop against
+    remotes, then prints ahead/behind counts for master against
     upstream/swift-invasive and main against paper/main. With -Merge, merges
     the given ref into the current branch after a confirmation prompt.
     Nothing is ever pushed.
@@ -73,7 +73,7 @@ try {
     }
 
     Write-Host ''
-    Write-Drift 'develop' 'upstream/swift-invasive'
+    Write-Drift 'master' 'upstream/swift-invasive'
     Write-Drift 'main' 'paper/main'
     Write-Host ''
 

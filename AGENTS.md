@@ -35,13 +35,14 @@ Layout (paperweight):
 
 | Name | What it is |
 |---|---|
-| `develop` | Active FastPaper development. Branched from `upstream/swift-invasive`. Work and commit here. |
+| `master` | Active FastPaper development (default branch). Branched from `upstream/swift-invasive`. Work and commit here. |
+| `dev/paper-clean` | `master` as it was before the Leaf patches were merged in. |
 | `main` | Mirror of PaperMC/Paper `main`. Do not develop on it; only fast-forward it from `paper/main`. |
 | remote `origin` | `git@github.com:DragonFixes/FastPaper.git`, the FastPaper repository |
 | remote `paper` | `https://github.com/PaperMC/Paper`, upstream Paper |
 | remote `upstream` | `git@github.com:Swift-ality/Paper.git`, the Swift fork |
 | `upstream/swift` | Swift's conservative patches only |
-| `upstream/swift-invasive` | Superset of `swift` plus the invasive patches; `develop`'s base |
+| `upstream/swift-invasive` | Superset of `swift` plus the invasive patches; `master`'s base |
 
 Never push to `paper` or `upstream`. Push to `origin` only when the user asks.
 
@@ -50,7 +51,7 @@ Never push to `paper` or `upstream`. Push to `origin` only when the user asks.
 ```powershell
 git fetch --all --prune
 git switch main; git merge --ff-only paper/main     # keep the mirror current
-git switch develop
+git switch master
 git merge upstream/swift-invasive                    # Swift work (already on top of Paper)
 # or, when Swift lags behind Paper:
 git merge main
@@ -153,7 +154,7 @@ Read these before picking the next performance change:
 
 Follow the global rules in `{USER HOME}/.claude/CLAUDE.md` for commit message
 format, committing after each change, and `UPDATES.md` if one exists. Commit on
-`develop`, not `main`.
+`master`, not `main`.
 
 ## Contributing back to Paper
 

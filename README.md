@@ -6,7 +6,7 @@
 
 [![Minecraft](https://img.shields.io/badge/minecraft-26.3-298046?style=for-the-badge&colorA=191920)](https://www.minecraft.net)
 [![Java](https://img.shields.io/badge/java-25-ff6a3d?style=for-the-badge&colorA=191920)](https://adoptium.net)
-[![Build](https://img.shields.io/github/actions/workflow/status/DragonFixes/FastPaper/build.yaml?branch=develop&style=for-the-badge&colorA=191920&label=build)](https://github.com/DragonFixes/FastPaper/actions)
+[![Build](https://img.shields.io/github/actions/workflow/status/DragonFixes/FastPaper/build.yaml?branch=master&style=for-the-badge&colorA=191920&label=build)](https://github.com/DragonFixes/FastPaper/actions)
 [![Discord](https://img.shields.io/badge/discord-join-5865f2?style=for-the-badge&colorA=191920&logo=discord&logoColor=white)](https://dsc.gg/streamline)
 [![Issues](https://img.shields.io/github/issues/DragonFixes/FastPaper?style=for-the-badge&colorA=191920&colorB=ffb347)](https://github.com/DragonFixes/FastPaper/issues)
 [![License](https://img.shields.io/badge/license-GPLv3-3a7bd5?style=for-the-badge&colorA=191920)](LICENSE.md)
@@ -145,7 +145,7 @@ See [gametests/README.md](gametests/README.md) for selectors, shadow-verify runs
 
 ## 🤝 Contributing
 
-Open pull requests against the `develop` branch of
+Open pull requests against the `master` branch of
 [DragonFixes/FastPaper](https://github.com/DragonFixes/FastPaper). The patch workflow is described
 in [CONTRIBUTING.md](CONTRIBUTING.md), which comes from Paper and still applies to how patches are
 made and rebuilt.
