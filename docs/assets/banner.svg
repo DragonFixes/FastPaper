@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="FastPaper: a performance fork of Paper for Minecraft 26.3">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1420"/>
+      <stop offset="1" stop-color="#1a2233"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#ff6a3d"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="320" rx="24" fill="url(#bg)"/>
+  <rect width="1280" height="320" rx="24" fill="url(#grid)"/>
+
+  <!-- speed streaks -->
+  <g stroke="url(#accent)" stroke-linecap="round">
+    <line x1="120" y1="118" x2="300" y2="118" stroke-width="6" stroke-opacity="0.9"/>
+    <line x1="80"  y1="150" x2="300" y2="150" stroke-width="6" stroke-opacity="0.6"/>
+    <line x1="150" y1="182" x2="300" y2="182" stroke-width="6" stroke-opacity="0.35"/>
+  </g>
+
+  <!-- paper sheet with folded corner -->
+  <g transform="translate(320 78)">
+    <path d="M0 0H104L140 36V164H0Z" fill="#f5f1e8"/>
+    <path d="M104 0V36H140Z" fill="#d8d0bf"/>
+    <g fill="url(#accent)">
+      <path d="M78 30L38 92H68L56 140L102 72H72L84 30Z"/>
+    </g>
+  </g>
+
+  <text x="500" y="168" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="96" font-weight="800" fill="#ffffff" letter-spacing="-2">Fast<tspan fill="url(#accent)">Paper</tspan></text>
+  <text x="504" y="222" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="500" fill="#aab4c8">Same gameplay. Less work per tick.</text>
+  <text x="504" y="262" font-family="'Cascadia Code', Consolas, 'Courier New', monospace" font-size="20" fill="#6c7891">Minecraft 26.3  ·  Paper fork  ·  Java 25</text>
+</svg>
